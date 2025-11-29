@@ -66,7 +66,11 @@ async def health_check():
     }
 
 
-# TODO: Implement routers
+# Service control router
+from routers import services
+app.include_router(services.router)
+
+# TODO: Implement other routers
 # from routers import videos, projects, jobs, websocket
 # app.include_router(videos.router, prefix="/api/videos", tags=["videos"])
 # app.include_router(projects.router, prefix="/api/projects", tags=["projects"])

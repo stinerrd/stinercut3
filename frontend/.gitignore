@@ -1,0 +1,6 @@
+/vendor/
+/node_modules/
+/public/build/
+/var/
+.env.local
+.env.*.local

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Tandem Video Editor{% endblock %}</title>
+
+    {% block stylesheets %}
+        {{ encore_entry_link_tags('app') }}
+    {% endblock %}
+</head>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+    <div class="app-wrapper">
+        {# Header/Navbar #}
+        {% include 'components/_navbar.html.twig' %}
+
+        {# Main Sidebar #}
+        {% include 'components/_sidebar.html.twig' %}
+
+        {# App Main #}
+        <main class="app-main">
+            {# Content Header #}
+            <div class="app-content-header">
+                <div class="container-fluid">
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <h3 class="mb-0">{% block page_title %}Dashboard{% endblock %}</h3>
+                        </div>
+                        <div class="col-sm-6">
+                            <ol class="breadcrumb float-sm-end">
+                                {% block breadcrumbs %}
+                                <li class="breadcrumb-item"><a href="/">Home</a></li>
+                                <li class="breadcrumb-item active">{% block breadcrumb_active %}Dashboard{% endblock %}</li>
+                                {% endblock %}
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Main content #}
+            <div class="app-content">
+                <div class="container-fluid">
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </main>
+
+        {# Footer #}
+        {% include 'components/_footer.html.twig' %}
+    </div>
+
+    {% block javascripts %}
+        {{ encore_entry_script_tags('app') }}
+    {% endblock %}
+</body>
+</html>

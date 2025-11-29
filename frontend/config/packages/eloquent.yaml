@@ -1,0 +1,19 @@
+wouterj_eloquent:
+    # Enable Eloquent ORM
+    eloquent: true
+
+    # Enable DB and Schema facades
+    aliases: true
+
+    # Database connections
+    connections:
+        default:
+            driver: "%env(DB_DRIVER)%"
+            host: "%env(DB_HOST)%"
+            port: "%env(int:DB_PORT)%"
+            database: "%env(DB_DATABASE)%"
+            username: "%env(DB_USERNAME)%"
+            password: "%env(DB_PASSWORD)%"
+            charset: "%env(DB_CHARSET)%"
+            collation: "%env(DB_COLLATION)%"
+            prefix: "%env(DB_PREFIX)%"

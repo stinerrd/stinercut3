@@ -39,7 +39,7 @@
 - [x] 7.3 Configure debounce delay
 
 ## 8. Verification
-- [ ] 8.1 Test with USB device insertion
-- [ ] 8.2 Test with USB device removal
-- [ ] 8.3 Verify API calls are made correctly
-- [ ] 8.4 Test service restart recovery
+- [x] 8.1 Test with USB device insertion
+- [x] 8.2 Test with USB device removal
+- [x] 8.3 Verify API calls are made correctly
+- [x] 8.4 Test service restart recovery
