@@ -8,6 +8,7 @@ when removable media is mounted or unmounted.
 
 import configparser
 import getpass
+import json
 import logging
 import os
 import pwd
@@ -16,6 +17,7 @@ import subprocess
 import sys
 import threading
 import time
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 import pyudev
@@ -29,6 +31,7 @@ class StinercutDetector:
         self.config = self._load_config(config_path)
         self._setup_logging()
         self.running = False
+        self.monitoring_enabled = False  # Disabled by default, must be enabled via API
         self.shutdown_event = threading.Event()
         self.pending_events = {}  # device_node -> timestamp for debouncing
 
@@ -54,6 +57,13 @@ class StinercutDetector:
         config["detector"].setdefault("mount_retry_interval", "0.5")
         config["detector"].setdefault("automount", "true")
         config["detector"].setdefault("mount_base", "/media/{user}")
+
+        if "control" not in config:
+            config["control"] = {}
+        config["control"].setdefault("enabled", "false")
+        config["control"].setdefault("host", "0.0.0.0")
+        config["control"].setdefault("port", "8001")
+        config["control"].setdefault("api_key", "")
 
         if "logging" not in config:
             config["logging"] = {}
@@ -320,6 +330,106 @@ class StinercutDetector:
         except requests.exceptions.HTTPError as e:
             self.logger.error(f"Backend API returned error: {e}")
 
+    def _start_control_server(self):
+        """Start HTTP control server in background thread."""
+        if not self.config["control"].getboolean("enabled", False):
+            self.logger.debug("HTTP control server disabled")
+            return
+
+        host = self.config["control"]["host"]
+        port = int(self.config["control"]["port"])
+        api_key = self.config["control"]["api_key"]
+
+        detector = self
+
+        class ControlHandler(BaseHTTPRequestHandler):
+            """HTTP request handler for control API."""
+
+            def log_message(self, format, *args):
+                """Override to use detector's logger."""
+                detector.logger.debug(f"HTTP: {format % args}")
+
+            def _check_api_key(self) -> bool:
+                """Check API key if configured."""
+                if not api_key:
+                    return True
+                request_key = self.headers.get("X-API-Key", "")
+                return request_key == api_key
+
+            def _send_json(self, data: dict, status: int = 200):
+                """Send JSON response."""
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(data).encode())
+
+            def do_GET(self):
+                """Handle GET requests."""
+                if not self._check_api_key():
+                    self._send_json({"error": "Unauthorized"}, 401)
+                    return
+
+                if self.path == "/status":
+                    status = {
+                        "running": detector.running,
+                        "monitoring_enabled": detector.monitoring_enabled,
+                        "pending_events": len(detector.pending_events),
+                        "service": "stinercut-detector",
+                    }
+                    self._send_json(status)
+                else:
+                    self._send_json({"error": "Not found"}, 404)
+
+            def do_POST(self):
+                """Handle POST requests."""
+                if not self._check_api_key():
+                    self._send_json({"error": "Unauthorized"}, 401)
+                    return
+
+                if self.path == "/control/stop":
+                    detector.logger.info("Stop requested via HTTP API")
+                    detector.running = False
+                    detector.shutdown_event.set()
+                    self._send_json({"status": "stopping"})
+
+                elif self.path == "/control/restart":
+                    detector.logger.info("Restart requested via HTTP API")
+                    detector.running = False
+                    detector.shutdown_event.set()
+                    # Clean exit with code 0 - systemd will restart
+                    self._send_json({"status": "restarting"})
+
+                elif self.path == "/control/enable":
+                    detector.logger.info("Monitoring enabled via HTTP API")
+                    detector.monitoring_enabled = True
+                    self._send_json({"status": "enabled", "monitoring_enabled": True})
+
+                elif self.path == "/control/disable":
+                    detector.logger.info("Monitoring disabled via HTTP API")
+                    detector.monitoring_enabled = False
+                    self._send_json({"status": "disabled", "monitoring_enabled": False})
+
+                else:
+                    self._send_json({"error": "Not found"}, 404)
+
+        def run_server():
+            """Run the HTTP server loop."""
+            try:
+                server = HTTPServer((host, port), ControlHandler)
+                server.timeout = 1.0
+                detector.logger.info(f"HTTP control server listening on {host}:{port}")
+
+                while detector.running:
+                    server.handle_request()
+
+                detector.logger.info("HTTP control server stopped")
+            except Exception as e:
+                detector.logger.error(f"HTTP control server error: {e}", exc_info=True)
+
+        thread = threading.Thread(target=run_server, daemon=True)
+        thread.start()
+        self.logger.debug("HTTP control server thread started")
+
     def handle_device_event(self, device: pyudev.Device):
         """Handle a udev device event."""
         action = device.action
@@ -327,6 +437,11 @@ class StinercutDetector:
         device_type = device.device_type
 
         self.logger.debug(f"Device event: action={action}, node={device_node}, type={device_type}")
+
+        # Check if monitoring is enabled
+        if not self.monitoring_enabled:
+            self.logger.debug(f"Monitoring disabled, ignoring event: {device_node}")
+            return
 
         # Only process partition events
         if device_type != "partition":
@@ -383,6 +498,9 @@ class StinercutDetector:
         monitor.filter_by(subsystem="block")
 
         self.running = True
+
+        # Start HTTP control server if enabled
+        self._start_control_server()
 
         # Set up signal handlers for graceful shutdown
         def signal_handler(signum, frame):

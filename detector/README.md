@@ -72,6 +72,15 @@ url = http://localhost:8000
 debounce_delay = 2.0
 mount_retries = 6
 mount_retry_interval = 0.5
+automount = true
+mount_base = /media/{user}
+mount_user = stiner
+
+[control]
+enabled = true
+host = 0.0.0.0
+port = 8001
+api_key =
 
 [logging]
 file = /var/log/stinercut/detector.log
@@ -81,6 +90,48 @@ level = INFO
 Restart service after changes:
 ```bash
 systemctl restart stinercut-detector
+```
+
+## HTTP Control API
+
+When `[control]` is enabled, the detector exposes an HTTP API for remote management.
+
+**Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/status` | Returns service status (running, monitoring_enabled, pending_events) |
+| POST | `/control/enable` | Enable device monitoring |
+| POST | `/control/disable` | Disable device monitoring |
+| POST | `/control/restart` | Triggers restart (systemd will restart the service) |
+
+**Monitoring State:**
+
+The detector starts with monitoring **disabled by default**. Device events are ignored until monitoring is explicitly enabled via the API. This prevents unintended operations when the service starts.
+
+**Example:**
+```bash
+# Get status
+curl http://localhost:8001/status
+# Response: {"running": true, "monitoring_enabled": false, "pending_events": 0, "service": "stinercut-detector"}
+
+# Enable monitoring
+curl -X POST http://localhost:8001/control/enable
+# Response: {"status": "enabled", "monitoring_enabled": true}
+
+# Disable monitoring
+curl -X POST http://localhost:8001/control/disable
+# Response: {"status": "disabled", "monitoring_enabled": false}
+
+# Restart service
+curl -X POST http://localhost:8001/control/restart
+```
+
+**API Key Authentication:**
+
+If `api_key` is set in config, include it in requests:
+```bash
+curl -H "X-API-Key: your-secret-key" http://localhost:8001/status
 ```
 
 ## Adding Users

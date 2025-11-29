@@ -77,6 +77,11 @@ chmod 644 /var/log/stinercut/detector.log
 echo "Installing systemd service..."
 cp stinercut-detector.service /etc/systemd/system/
 
+# Install systemd path watcher for remote start trigger
+echo "Installing systemd path watcher..."
+cp stinercut-detector-watcher.path /etc/systemd/system/
+cp stinercut-detector-watcher.service /etc/systemd/system/
+
 # Install polkit rule for non-root service management
 echo "Installing polkit rule..."
 install -m 644 50-stinercut-detector.rules /etc/polkit-1/rules.d/
@@ -90,6 +95,11 @@ systemctl daemon-reload
 # Enable service
 echo "Enabling service for auto-start..."
 systemctl enable "$SERVICE_NAME"
+
+# Enable path watcher
+echo "Enabling path watcher..."
+systemctl enable stinercut-detector-watcher.path
+systemctl start stinercut-detector-watcher.path
 
 # Start service
 echo "Starting service..."

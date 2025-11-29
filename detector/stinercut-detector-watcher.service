@@ -1,0 +1,7 @@
+[Unit]
+Description=Start detector service when trigger file appears
+Documentation=https://github.com/stinercut/stinercut3
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'rm -f /shared-videos/.detector-start && systemctl start stinercut-detector'
