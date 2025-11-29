@@ -1,0 +1,21 @@
+[Unit]
+Description=Stinercut Media Detection Service
+Documentation=https://github.com/stinercut/stinercut3
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/stinercut-detector/venv/bin/python /opt/stinercut-detector/stinercut_detector.py /opt/stinercut-detector/config.ini
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/log/stinercut /media
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+// Polkit rule to allow members of the 'stinercut' group
+// to manage the stinercut-detector systemd service without sudo
+
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") == "stinercut-detector.service" &&
+        subject.isInGroup("stinercut")) {
+        return polkit.Result.YES;
+    }
+});

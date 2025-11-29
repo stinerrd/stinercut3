@@ -1,0 +1,74 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: tandem_frontend
+    volumes:
+      - ./frontend:/var/www/html
+      - shared-videos:/shared-videos
+    depends_on:
+      - mysql
+    networks:
+      - tandem-network
+      - traefik
+    environment:
+      - DATABASE_URL=mysql://tandem_user:tandem_pass@mysql:3306/tandem_db
+      - BACKEND_API_URL=https://api.stinercut.local
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.stinercut-frontend.rule=Host(`stinercut.local`)"
+      - "traefik.http.routers.stinercut-frontend.entrypoints=websecure"
+      - "traefik.http.routers.stinercut-frontend.tls=true"
+      - "traefik.http.services.stinercut-frontend.loadbalancer.server.port=80"
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: tandem_backend
+    volumes:
+      - ./backend:/app
+      - shared-videos:/shared-videos
+    depends_on:
+      - mysql
+    networks:
+      - tandem-network
+      - traefik
+    environment:
+      - DATABASE_URL=mysql://tandem_user:tandem_pass@mysql:3306/tandem_db
+      - SHARED_VIDEO_PATH=/shared-videos
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.stinercut-backend.rule=Host(`api.stinercut.local`)"
+      - "traefik.http.routers.stinercut-backend.entrypoints=websecure"
+      - "traefik.http.routers.stinercut-backend.tls=true"
+      - "traefik.http.services.stinercut-backend.loadbalancer.server.port=8000"
+
+  mysql:
+    image: mysql:8.0
+    container_name: tandem_mysql
+    ports:
+      - "3307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=tandem_db
+      - MYSQL_USER=tandem_user
+      - MYSQL_PASSWORD=tandem_pass
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - tandem-network
+    command: --default-authentication-plugin=mysql_native_password
+
+volumes:
+  shared-videos:
+    driver: local
+  mysql-data:
+    driver: local
+
+networks:
+  tandem-network:
+    driver: bridge
+  traefik:
+    external: true

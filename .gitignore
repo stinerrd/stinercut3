@@ -1,0 +1,41 @@
+# Environment files
+.env
+
+# Frontend (Symfony)
+/frontend/vendor/
+/frontend/var/
+/frontend/node_modules/
+/frontend/public/build/
+/frontend/.env.local
+/frontend/.env.local.php
+/frontend/.env.*.local
+
+# Python (any folder)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+/backend/.Python
+/backend/env/
+/backend/venv/
+/backend/.venv
+/backend/*.egg-info/
+/backend/dist/
+/backend/build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Videos (optional - uncomment if you don't want to track videos)
+# /shared-videos/
