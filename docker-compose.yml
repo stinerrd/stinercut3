@@ -13,7 +13,7 @@ services:
       - tandem-network
       - traefik
     environment:
-      - DATABASE_URL=mysql://tandem_user:tandem_pass@mysql:3306/tandem_db
+      - DATABASE_URL=mysql://stiner:local@mysql:3306/stinercut
       - BACKEND_API_URL=https://api.stinercut.local
     labels:
       - "traefik.enable=true"
@@ -32,13 +32,15 @@ services:
       - shared-videos:/shared-videos
     depends_on:
       - mysql
+    ports:
+      - "8002:8000"
     networks:
       - tandem-network
       - traefik
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - DATABASE_URL=mysql://tandem_user:tandem_pass@mysql:3306/tandem_db
+      - DATABASE_URL=mysql://stiner:local@mysql:3306/stinercut
       - SHARED_VIDEO_PATH=/shared-videos
       - DETECTOR_URL=http://host.docker.internal:8001
     labels:
@@ -54,10 +56,10 @@ services:
     ports:
       - "3307:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=root_password
-      - MYSQL_DATABASE=tandem_db
-      - MYSQL_USER=tandem_user
-      - MYSQL_PASSWORD=tandem_pass
+      - MYSQL_ROOT_PASSWORD=local
+      - MYSQL_DATABASE=stinercut
+      - MYSQL_USER=stiner
+      - MYSQL_PASSWORD=local
     volumes:
       - mysql-data:/var/lib/mysql
     networks:

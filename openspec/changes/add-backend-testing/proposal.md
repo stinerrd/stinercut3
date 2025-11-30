@@ -7,7 +7,7 @@ The backend has 4 SQLAlchemy models (Project, Video, Job, Asset), database confi
 - Add pytest and testing dependencies to requirements.txt
 - Create pytest.ini configuration for test environment
 - Create conftest.py with database fixtures and test client
-- Create test database (tandem_db_test) with transaction isolation
+- Create test database (stinercut_test) with transaction isolation
 - Create unit tests for all SQLAlchemy models
 - Create API endpoint tests for health checks
 - Set up test fixtures for consistent test data generation

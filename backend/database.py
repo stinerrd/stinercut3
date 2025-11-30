@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # Get database URL from environment and ensure pymysql driver is used
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://tandem_user:tandem_pass@mysql:3306/tandem_db")
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://stiner:local@mysql:3306/stinercut")
 # Ensure pymysql driver is used even if DATABASE_URL is set with mysql:// scheme
 if DATABASE_URL.startswith("mysql://"):
     DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)

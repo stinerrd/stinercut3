@@ -29,7 +29,10 @@ app = FastAPI(
 # Configure CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080"],
+    allow_origins=[
+        "http://localhost:8080",
+        "https://stinercut.local",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -70,9 +73,12 @@ async def health_check():
 from routers import services
 app.include_router(services.router)
 
+# WebSocket event hub
+from routers import websocket
+app.include_router(websocket.router)
+
 # TODO: Implement other routers
-# from routers import videos, projects, jobs, websocket
+# from routers import videos, projects, jobs
 # app.include_router(videos.router, prefix="/api/videos", tags=["videos"])
 # app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 # app.include_router(jobs.router, prefix="/api/jobs", tags=["jobs"])
-# app.include_router(websocket.router, prefix="/ws", tags=["websocket"])

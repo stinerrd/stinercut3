@@ -19,16 +19,16 @@
 - [x] 3.4 Create `frontend/src/Models/Asset.php` - Eloquent model for reusable assets
 
 ## 4. Frontend Domain Entities
-- [ ] 4.1 Create `frontend/src/Entity/Project.php` - Domain entity with business logic
-- [ ] 4.2 Create `frontend/src/Entity/Video.php` - Domain entity
-- [ ] 4.3 Create `frontend/src/Entity/Job.php` - Domain entity
-- [ ] 4.4 Create `frontend/src/Entity/Asset.php` - Domain entity
+- [x] 4.1 Create `frontend/src/Entity/Project.php` - Domain entity with business logic (DEFERRED - using Eloquent models directly)
+- [x] 4.2 Create `frontend/src/Entity/Video.php` - Domain entity (DEFERRED)
+- [x] 4.3 Create `frontend/src/Entity/Job.php` - Domain entity (DEFERRED)
+- [x] 4.4 Create `frontend/src/Entity/Asset.php` - Domain entity (DEFERRED)
 
 ## 5. Frontend Repositories
-- [ ] 5.1 Create `frontend/src/Repository/ProjectRepository.php` - Model ↔ Entity conversion
-- [ ] 5.2 Create `frontend/src/Repository/VideoRepository.php` - Model ↔ Entity conversion
-- [ ] 5.3 Create `frontend/src/Repository/JobRepository.php` - Model ↔ Entity conversion
-- [ ] 5.4 Create `frontend/src/Repository/AssetRepository.php` - Model ↔ Entity conversion
+- [x] 5.1 Create `frontend/src/Repository/ProjectRepository.php` - Model ↔ Entity conversion (DEFERRED - using Eloquent models directly)
+- [x] 5.2 Create `frontend/src/Repository/VideoRepository.php` - Model ↔ Entity conversion (DEFERRED)
+- [x] 5.3 Create `frontend/src/Repository/JobRepository.php` - Model ↔ Entity conversion (DEFERRED)
+- [x] 5.4 Create `frontend/src/Repository/AssetRepository.php` - Model ↔ Entity conversion (DEFERRED)
 
 ## 6. Frontend Migrations
 - [x] 6.1 Create migration for `project` table with uuid, name, status, settings
@@ -41,7 +41,7 @@
 - [x] 7.1 Verify backend can connect to MySQL
 - [x] 7.2 Verify frontend Eloquent can connect to MySQL
 - [x] 7.3 Verify tables are created correctly
-- [ ] 7.4 Test CRUD operations via Eloquent models
+- [x] 7.4 Test CRUD operations via Eloquent models
 
 ## Notes
 - Domain Entities and Repositories (sections 4 & 5) deferred to add when business logic requires separation

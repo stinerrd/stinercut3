@@ -23,11 +23,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Tandem Video Editing Software** - Web-based video editing application with session-based workflow.
+**Stinercut** - Web-based video editing application for tandem skydiving videos.
 
-- **Frontend**: Symfony 7 (PHP 8.3-fpm + Nginx) - Web interface for video editing
+- **Frontend**: Symfony 7 (PHP 8.3-fpm + Nginx) with Eloquent ORM
 - **Backend**: Python 3.11 + FastAPI + FFmpeg - Video processing engine
-- **Database**: MySQL 8.0 - Stores sessions, projects, jobs, and metadata
+- **Database**: MySQL 8.0 - Stores projects, jobs, assets, and settings
 - **Storage**: Shared Docker volume for video files accessible by both services
 
 ## Commands
@@ -55,23 +55,14 @@ docker-compose down -v
 # Enter frontend container
 docker-compose exec frontend bash
 
-# Initialize Symfony project (first time only)
-symfony new . --webapp --version=7.0
-
 # Install PHP dependencies
 composer install
 
 # Run migrations
-php bin/console doctrine:migrations:migrate
+php bin/console eloquent:migrate
 
-# Install Node.js dependencies
-npm install
-
-# Build assets
-npm run dev
-
-# Watch for changes during development
-npm run watch
+# Rollback migrations
+php bin/console eloquent:migrate:rollback
 
 # Clear cache
 php bin/console cache:clear
@@ -92,21 +83,21 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ### Database
 ```bash
 # Access MySQL CLI
-docker-compose exec mysql mysql -u tandem_user -ptandem_pass tandem_db
+docker-compose exec -T mysql mysql -u stiner -plocal stinercut
 
 # Create database backup
-docker-compose exec mysql mysqldump -u tandem_user -ptandem_pass tandem_db > backup.sql
+docker-compose exec -T mysql mysqldump -u stiner -plocal stinercut > backup.sql
 
 # Restore database
-docker-compose exec -T mysql mysql -u tandem_user -ptandem_pass tandem_db < backup.sql
+docker-compose exec -T mysql mysql -u stiner -plocal stinercut < backup.sql
 ```
 
 ## Architecture
 
 ### Service Communication
-- Frontend (port 8080) → Backend (port 8000) via REST API
+- Frontend (via Traefik at stinercut.local) → Backend (api.stinercut.local) via REST API
 - Frontend ← Backend via WebSocket for real-time progress updates
-- Both services → MySQL (port 3306) for data persistence
+- Both services → MySQL (port 3306 internal, 3307 external) for data persistence
 - Both services → /shared-videos volume for video file access
 
 ### Shared Storage Structure
@@ -118,102 +109,93 @@ docker-compose exec -T mysql mysql -u tandem_user -ptandem_pass tandem_db < back
 └── thumbnails/   # Video preview thumbnails
 ```
 
-### Data Flow
-1. User uploads video via Frontend → saved to /shared-videos/uploads/
-2. User creates project and adds operations → stored in MySQL
-3. User triggers render → Frontend sends request to Backend
-4. Backend creates job → processes video with FFmpeg → saves to /shared-videos/output/
-5. Backend sends progress updates via WebSocket → Frontend displays real-time progress
-6. Job completes → Frontend allows download of processed video
+### Frontend Structure (Symfony + Eloquent)
+```
+frontend/
+├── src/
+│   ├── Controller/       # HTTP request handlers
+│   │   ├── HomeController.php
+│   │   ├── SettingsController.php
+│   │   └── TandemMastersController.php
+│   └── Models/           # Eloquent ORM models
+│       ├── Project.php
+│       ├── Video.php
+│       ├── Job.php
+│       ├── Asset.php
+│       ├── Setting.php
+│       └── TandemMaster.php
+├── templates/            # Twig templates
+├── migrations/           # Eloquent migrations
+└── assets/               # JS/CSS (Webpack Encore)
+```
 
-### Frontend Structure (Symfony)
-- Controllers: Handle HTTP requests, render views
-- Entities: Doctrine ORM models (Session, Project, EditOperation, Job, Video)
-- Services: Business logic (BackendApiClient, VideoService, SessionService)
-- Templates: Twig templates for UI
-- Assets: JavaScript/CSS managed by Webpack Encore
-
-### Backend Structure (Python)
-- main.py: FastAPI application entry point
-- routers/: API endpoint handlers (videos, projects, jobs, websocket)
-- services/: Business logic (video_processor, job_manager, effects)
-- models/: SQLAlchemy ORM models
-- utils/: Helper functions (ffmpeg_helper)
+### Backend Structure (Python + FastAPI)
+```
+backend/
+├── main.py               # FastAPI entry point
+├── database.py           # SQLAlchemy connection
+├── routers/
+│   ├── services.py       # Service control endpoints
+│   └── websocket.py      # WebSocket handler
+└── models/
+    ├── project.py
+    ├── video.py
+    ├── job.py
+    ├── asset.py
+    └── setting.py
+```
 
 ## Key Technologies
 
 ### Frontend Stack
 - **Symfony 7**: PHP framework for web application
-- **Doctrine ORM**: Database abstraction layer
-- **Webpack Encore**: Asset management (JS/CSS bundling)
-- **Video.js**: HTML5 video player library
-- **Mercure**: WebSocket/SSE for real-time updates
-- **Stimulus**: JavaScript framework (included in Symfony webapp)
+- **Eloquent ORM**: Laravel's database abstraction (via wouterj/eloquent-bundle)
+- **AdminLTE 3**: Dashboard UI theme
+- **Twig**: Template engine
 
 ### Backend Stack
 - **FastAPI**: Modern Python web framework
 - **FFmpeg**: Video processing engine
-- **ffmpeg-python**: Python wrapper for FFmpeg
 - **SQLAlchemy**: Python ORM for database operations
 - **Uvicorn**: ASGI server for FastAPI
 - **WebSockets**: Real-time bidirectional communication
 
-## Video Processing Features
+## Database
 
-The backend implements these FFmpeg-based operations:
-- **Basic**: Trim, cut, concatenate clips
-- **Filters**: Brightness, contrast, saturation, blur, sharpen, grayscale
-- **Transitions**: Fade in/out, crossfade, wipe
-- **Text**: Overlay text with customizable position, font, color
-- **Audio**: Volume adjustment, fade, mixing
+### Connection Details
+- **Host**: localhost (external) / mysql (internal)
+- **Port**: 3307 (external) / 3306 (internal)
+- **Database**: stinercut
+- **Username**: stiner
+- **Password**: local
+- **Connection string**: `mysql://stiner:local@mysql:3306/stinercut`
 
-## Session Management
-
-Uses session-based authentication (no user accounts):
-- Sessions stored in MySQL
-- Projects associated with session ID
-- No login/registration required
-- Sessions expire after inactivity
+### Tables
+- `projects` - Video editing projects
+- `videos` - Video file metadata
+- `jobs` - Processing job tracking
+- `assets` - Intro/outro/watermark assets
+- `settings` - Application settings
+- `tandem_masters` - Tandem master profiles
+- `migrations` - Eloquent migration tracking
 
 ## Development Workflow
 
 1. Make changes to frontend code in `/frontend` directory
 2. Make changes to backend code in `/backend` directory
 3. Changes are reflected immediately due to volume mounts and hot reload
-4. Frontend Webpack watch mode auto-compiles assets
-5. Backend uvicorn auto-reloads on Python file changes
+4. Backend uvicorn auto-reloads on Python file changes
 
-## IDE Support
+## URLs
 
-### PyCharm Community Edition
-- Use integrated terminal for all Docker commands
-- Docker GUI integration requires PyCharm Professional
-- Terminal access: **View** → **Tool Windows** → **Terminal**
-- All commands in this file work from PyCharm's terminal
-
-### PyCharm Professional
-- Full Docker integration available in Services panel
-- Configure: **Settings** → **Docker** → Add Unix socket connection
-- Access: **View** → **Tool Windows** → **Services**
-
-### VS Code
-- Install "Docker" extension by Microsoft for full Docker Compose support
-- View containers, logs, and manage services from sidebar
+- **Frontend**: https://stinercut.local (via Traefik)
+- **Backend API**: https://api.stinercut.local (via Traefik)
+- **Backend direct**: http://localhost:8002
 
 ## Important Notes
 
 - Frontend public directory: `/frontend/public` (Nginx serves from here)
 - Backend must access shared volume at `/shared-videos`
-- Database connection string: `mysql://tandem_user:tandem_pass@mysql:3306/tandem_db`
-- Backend API base URL from frontend: `http://backend:8000`
 - All video file paths in database should be relative to `/shared-videos/`
-
-## Next Steps
-
-See `TODO.md` for detailed implementation roadmap covering:
-- Symfony project initialization and bundle installation
-- Backend API endpoint implementation
-- Database schema and migrations
-- Video processing pipeline development
-- Frontend UI/editor interface
-- WebSocket real-time updates integration
+- Uses Eloquent ORM (not Doctrine) for frontend database operations
+- create files readable for all

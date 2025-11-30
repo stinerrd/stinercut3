@@ -18,7 +18,7 @@
 - [ ] 3.4 Create model factory fixtures (create_project, create_video, etc.)
 
 ## 4. Test Database Setup
-- [ ] 4.1 Create tandem_db_test database in MySQL
+- [ ] 4.1 Create stinercut_test database in MySQL
 - [ ] 4.2 Configure TEST_DATABASE_URL environment variable
 - [ ] 4.3 Create fixture to run migrations on test database
 - [ ] 4.4 Verify transaction rollback isolation works

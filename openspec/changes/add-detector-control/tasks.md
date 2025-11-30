@@ -31,8 +31,16 @@
 ## 4. Testing & Documentation
 
 - [x] 4.1 Test HTTP control endpoints manually (enable, disable, status)
-- [ ] 4.2 Test backend proxy endpoints
-- [ ] 4.3 Update detector README with control API documentation
+- [x] 4.2 Test backend proxy endpoints
+- [x] 4.3 Update detector README with control API documentation
+
+## 5. WebSocket-Based Control (Refactor)
+
+- [x] 5.1 Replace HTTP-based control with WebSocket commands
+- [x] 5.2 Add on_message handler to detector for incoming commands
+- [x] 5.3 Implement detector:status, detector:enable, detector:disable commands
+- [x] 5.4 Remove HTTP proxy endpoints from backend (keep restart for debugging)
+- [x] 5.5 Update frontend to use WebSocket for all control operations
 
 ## Removed Tasks (No longer needed)
 

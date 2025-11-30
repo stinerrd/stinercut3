@@ -1,50 +1,73 @@
-## 1. Backend - Global Settings
-- [ ] 1.1 Create `backend/models/settings.py` - Global settings model
-- [ ] 1.2 Create `backend/routers/settings.py` - Settings API
-- [ ] 1.3 Implement GET /api/settings - Get all global settings
-- [ ] 1.4 Implement PUT /api/settings - Update global settings
-- [ ] 1.5 Implement default values initialization
+## Phase 1: Database & Models (COMPLETED)
 
-## 2. Global Settings Options
-- [ ] 2.1 drop_videos_shorter_than (default: 5 seconds)
-- [ ] 2.2 transition_enabled (default: true)
-- [ ] 2.3 transition_default (default: crossfade)
-- [ ] 2.4 transition_duration (default: 1 second)
-- [ ] 2.5 watermark_enabled (default: true)
-- [ ] 2.6 watermark_default (asset ID)
-- [ ] 2.7 watermark_position (default: bottom-right)
-- [ ] 2.8 intro_enabled (default: true)
-- [ ] 2.9 intro_default (asset ID)
-- [ ] 2.10 outro_enabled (default: true)
-- [ ] 2.11 outro_default (asset ID)
-- [ ] 2.12 audio_enabled (default: true)
-- [ ] 2.13 audio_default (asset ID)
-- [ ] 2.14 audio_freefall_default (asset ID)
-- [ ] 2.15 audio_volume (default: 0.8)
-- [ ] 2.16 pax_welcome_enabled (default: true)
-- [ ] 2.17 pax_screen_default (asset ID)
+- [x] 1.1 Create migration `frontend/migrations/2025_11_29_100000_create_setting_table.php`
+- [x] 1.2 Add seed data for initial settings (video.*, storage.*)
+- [x] 1.3 Run migration
 
-## 3. Backend - Project Settings
-- [ ] 3.1 Define project settings schema (overrides global)
-- [ ] 3.2 Implement settings inheritance (project overrides global)
-- [ ] 3.3 Implement GET /api/projects/{id}/settings
-- [ ] 3.4 Implement PUT /api/projects/{id}/settings
+## Phase 2: Frontend Model (COMPLETED)
 
-## 4. Frontend - Global Settings Page
-- [ ] 4.1 Create `frontend/src/Controller/SettingsController.php`
-- [ ] 4.2 Create `frontend/templates/settings/index.html.twig`
-- [ ] 4.3 Create form for each setting category
-- [ ] 4.4 Asset selectors for default assets
-- [ ] 4.5 Save button with validation
+- [x] 2.1 Create `frontend/src/Models/Setting.php` with Eloquent model
+- [x] 2.2 Implement `getTypedValue()` method for type casting
+- [x] 2.3 Implement static `get(key, default)` helper method
 
-## 5. Frontend - Project Settings
-- [ ] 5.1 Add settings panel to project page
-- [ ] 5.2 Show inherited values from global settings
-- [ ] 5.3 Allow override per setting
-- [ ] 5.4 "Reset to default" button per setting
+## Phase 3: Frontend Controllers (COMPLETED)
 
-## 6. Verification
-- [ ] 6.1 Test global settings CRUD
-- [ ] 6.2 Test project settings override
-- [ ] 6.3 Test settings inheritance
-- [ ] 6.4 Test UI for all setting types
+- [x] 3.1 Create `frontend/src/Controller/SettingsController.php`
+- [x] 3.2 Create `frontend/src/Controller/Api/SettingsApiController.php`
+- [x] 3.3 Implement GET /api/settings - list all settings
+- [x] 3.4 Implement PUT /api/settings/{key} - update single setting
+- [x] 3.5 Implement PUT /api/settings/batch - update multiple settings
+
+## Phase 4: Frontend Navigation (COMPLETED)
+
+- [x] 4.1 Update `frontend/templates/components/_sidebar.html.twig`
+- [x] 4.2 Add Settings menu item with gear icon
+
+## Phase 5: Backend Model (COMPLETED)
+
+- [x] 5.1 Create `backend/models/setting.py` with SQLAlchemy model
+- [x] 5.2 Implement `get(db, key, default)` class method
+- [x] 5.3 Implement `get_typed_value()` for type casting
+
+## Phase 6: UI Refactoring - Inline Editing (COMPLETED)
+
+- [x] 6.1 Update `frontend/templates/settings/index.html.twig` - replace tab form with inline-editable table
+- [x] 6.2 Add table structure: Setting, Value, Category, Description, Actions columns
+- [x] 6.3 Add dual-state HTML for each row (view mode / edit mode)
+- [x] 6.4 Add data-setting-key attribute to each row
+- [x] 6.5 Add data-original attribute to inputs for cancel restore
+
+## Phase 7: JavaScript Refactoring (COMPLETED)
+
+- [x] 7.1 Update `frontend/public/js/settings-form.js` - replace batch save with inline handlers
+- [x] 7.2 Implement event delegation for Edit/Save/Cancel buttons
+- [x] 7.3 Implement `enterEditMode(row)` - show input, hide badge, swap buttons
+- [x] 7.4 Implement `exitEditMode(row)` - restore badge, hide input, swap buttons
+- [x] 7.5 Implement `saveSetting(row)` - PUT to /api/settings/{key}, update display
+- [x] 7.6 Implement `showToast(message, type)` - Bootstrap Toast pattern
+- [x] 7.7 Implement `updateViewDisplay(row, value, type)` - update badge after save
+
+## Phase 8: Controller Update (COMPLETED)
+
+- [x] 8.1 Update `SettingsController.php` - pass flat list instead of grouped
+
+## Phase 9: Verification (COMPLETED)
+
+- [x] 9.1 Test inline edit for string settings
+- [x] 9.2 Test inline edit for integer settings
+- [x] 9.3 Test inline edit for boolean settings (if any)
+- [x] 9.4 Test cancel restores original value
+- [x] 9.5 Test toast notifications appear on save
+- [x] 9.6 Test backend can still read updated settings
+
+## Phase 10: Enum/Dropdown Support (COMPLETED)
+
+- [x] 10.1 Create migration `frontend/migrations/2025_11_29_100001_add_options_to_setting.php` adding `options` column
+- [x] 10.2 Add `getOptions()` method to `frontend/src/Models/Setting.php`
+- [x] 10.3 Add `options` to fillable/visible/casts in Setting model
+- [x] 10.4 Add `get_options()` method to `backend/models/setting.py`
+- [x] 10.5 Add `options` column to backend Setting SQLAlchemy model
+- [x] 10.6 Update `frontend/templates/settings/index.html.twig` to render `<select>` when options exist
+- [x] 10.7 Populate initial options for `video.default_codec` and `video.default_resolution`
+- [x] 10.8 Test dropdown rendering for settings with options
+- [x] 10.9 Test dropdown selections save correctly via API

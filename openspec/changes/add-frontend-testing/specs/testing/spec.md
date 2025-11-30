@@ -28,7 +28,7 @@ The system SHALL isolate test data using database transactions.
 
 #### Scenario: Separate test database
 - **WHEN** tests run with APP_ENV=test
-- **THEN** tests use tandem_db_test, not tandem_db
+- **THEN** tests use stinercut_test, not stinercut
 
 ### Requirement: Model Unit Tests
 The system SHALL have unit tests for all Eloquent models.

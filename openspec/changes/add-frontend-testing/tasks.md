@@ -17,7 +17,7 @@
 - [ ] 3.4 Create `.env.test` with test database credentials
 
 ## 4. Test Database Setup
-- [ ] 4.1 Create tandem_db_test database in MySQL
+- [ ] 4.1 Create stinercut_test database in MySQL
 - [ ] 4.2 Configure test database user permissions
 - [ ] 4.3 Verify migrations run against test database
 

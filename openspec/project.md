@@ -119,7 +119,7 @@ backend/            # FastAPI application
 - All video file paths in database must be relative to `/shared-videos/`
 - Backend must access shared volume at `/shared-videos/`
 - Frontend public directory: `/frontend/public` (Nginx serves from here)
-- Database connection: `mysql://tandem_user:tandem_pass@mysql:3306/tandem_db`
+- Database connection: `mysql://stiner:local@mysql:3306/stinercut`
 - Backend API base URL from frontend: `http://backend:8000`
 
 ## External Dependencies

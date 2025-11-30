@@ -1,0 +1,124 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Settings - Stinercut{% endblock %}
+
+{% block page_title %}Settings{% endblock %}
+{% block breadcrumb_active %}Settings{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card card-primary card-outline">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="bi bi-gear me-2"></i>Application Settings
+                </h3>
+            </div>
+            <div class="card-body">
+                {# Category Tabs #}
+                <ul class="nav nav-tabs" id="settingsTabs" role="tablist">
+                    {% for category in categories %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link {% if loop.first %}active{% endif %}"
+                                id="tab-{{ category|lower|replace({' ': '-'}) }}"
+                                data-bs-toggle="tab"
+                                data-bs-target="#content-{{ category|lower|replace({' ': '-'}) }}"
+                                type="button"
+                                role="tab"
+                                aria-controls="content-{{ category|lower|replace({' ': '-'}) }}"
+                                aria-selected="{{ loop.first ? 'true' : 'false' }}">
+                            {{ category }}
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                {# Tab Content #}
+                <div class="tab-content pt-3" id="settingsTabContent">
+                    {% for category, settings in settingsByCategory %}
+                    <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
+                         id="content-{{ category|lower|replace({' ': '-'}) }}"
+                         role="tabpanel"
+                         aria-labelledby="tab-{{ category|lower|replace({' ': '-'}) }}">
+
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Setting</th>
+                                        <th>Value</th>
+                                        <th>Description</th>
+                                        <th style="width: 100px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for setting in settings %}
+                                    <tr data-setting-key="{{ setting.key }}">
+                                        <td>{{ setting.label }}</td>
+                                        <td>
+                                            <span class="setting-view">
+                                                <code>{{ setting.value }}</code>
+                                            </span>
+                                            <span class="setting-edit" style="display: none;">
+                                                {% set opts = setting.options %}
+                                                {% if opts is not empty %}
+                                                    {# Dropdown for settings with predefined options #}
+                                                    <select class="form-control form-control-sm setting-input"
+                                                            data-original="{{ setting.value }}" data-type="{{ setting.type }}">
+                                                        {% for opt in opts %}
+                                                            <option value="{{ opt }}" {% if setting.value == opt %}selected{% endif %}>{{ opt }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                {% elseif setting.type == 'integer' %}
+                                                    <input type="number" class="form-control form-control-sm setting-input"
+                                                           value="{{ setting.value }}" data-original="{{ setting.value }}"
+                                                           data-type="{{ setting.type }}">
+                                                {% elseif setting.type == 'boolean' %}
+                                                    <select class="form-control form-control-sm setting-input"
+                                                            data-original="{{ setting.value }}" data-type="{{ setting.type }}">
+                                                        <option value="true" {% if setting.value == 'true' %}selected{% endif %}>True</option>
+                                                        <option value="false" {% if setting.value == 'false' %}selected{% endif %}>False</option>
+                                                    </select>
+                                                {% elseif setting.type == 'json' %}
+                                                    <textarea class="form-control form-control-sm setting-input"
+                                                              data-original="{{ setting.value }}" data-type="{{ setting.type }}"
+                                                              rows="2">{{ setting.value }}</textarea>
+                                                {% else %}
+                                                    <input type="text" class="form-control form-control-sm setting-input"
+                                                           value="{{ setting.value }}" data-original="{{ setting.value }}"
+                                                           data-type="{{ setting.type }}">
+                                                {% endif %}
+                                            </span>
+                                        </td>
+                                        <td class="text-muted" style="font-size: 0.875rem;">
+                                            {{ setting.description|default('—') }}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group setting-view-buttons" role="group">
+                                                <button type="button" class="btn btn-sm btn-primary btn-edit" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </div>
+                                            <div class="btn-group setting-edit-buttons" style="display: none;" role="group">
+                                                <button type="button" class="btn btn-sm btn-success btn-save" title="Save">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-secondary btn-cancel" title="Cancel">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

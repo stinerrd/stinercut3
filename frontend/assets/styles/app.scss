@@ -5,3 +5,13 @@
 @import "~bootstrap-icons/font/bootstrap-icons.css";
 
 // Custom application styles below
+
+// Spin animation for refresh indicators
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}

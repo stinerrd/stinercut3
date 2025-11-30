@@ -3,7 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Tandem Video Editor{% endblock %}</title>
+    <title>{% block title %}Stinercut{% endblock %}</title>
+
+    {# Favicons #}
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/favicon/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/favicon/favicon-16x16.png') }}">
+    <link rel="icon" type="image/x-icon" href="{{ asset('images/favicon/favicon.ico') }}">
+    <link rel="manifest" href="{{ asset('images/favicon/site.webmanifest') }}">
 
     {% block stylesheets %}
         {{ encore_entry_link_tags('app') }}
@@ -50,8 +57,29 @@
         {% include 'components/_footer.html.twig' %}
     </div>
 
+    {# Webpack Encore scripts #}
+    {{ encore_entry_script_tags('app') }}
+
+    {# Global JavaScript variables (injected by AppController) #}
+    <script>
+        window.App = window.App || {};
+        {% if js_vars_global is defined %}
+            {% for key, value in js_vars_global %}
+        window.App.{{ key }} = {{ value|raw }};
+            {% endfor %}
+        {% endif %}
+    </script>
+
+    {# Global WebSocket client (loaded before page-specific JS) #}
+    <script src="{{ asset('js/websocket-client.js') }}"></script>
+
+    {# Page-specific JavaScript files #}
     {% block javascripts %}
-        {{ encore_entry_script_tags('app') }}
+        {% if page_javascripts is defined %}
+            {% for js_file in page_javascripts %}
+            <script src="{{ asset(js_file) }}"></script>
+            {% endfor %}
+        {% endif %}
     {% endblock %}
 </body>
 </html>

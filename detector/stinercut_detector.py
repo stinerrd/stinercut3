@@ -21,7 +21,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 import pyudev
-import requests
+import websocket
 
 
 class StinercutDetector:
@@ -34,6 +34,8 @@ class StinercutDetector:
         self.monitoring_enabled = False  # Disabled by default, must be enabled via API
         self.shutdown_event = threading.Event()
         self.pending_events = {}  # device_node -> timestamp for debouncing
+        self.ws = None  # WebSocket connection to backend
+        self.ws_lock = threading.Lock()  # Thread-safe WebSocket access
 
     def _load_config(self, config_path: str = None) -> configparser.ConfigParser:
         """Load configuration from config.ini."""
@@ -49,6 +51,7 @@ class StinercutDetector:
         if "api" not in config:
             config["api"] = {}
         config["api"].setdefault("url", "http://localhost:8000")
+        config["api"].setdefault("websocket_url", "ws://localhost:8002/ws?client_type=detector")
 
         if "detector" not in config:
             config["detector"] = {}
@@ -285,50 +288,123 @@ class StinercutDetector:
 
         return True
 
-    def notify_mount(self, device_node: str, mount_path: str):
-        """Send mount notification to backend API."""
-        api_url = self.config["api"]["url"].rstrip("/")
-        url = f"{api_url}/api/devices/mount"
+    def _send_ws_message(self, command: str, data: dict, target: str = "frontend"):
+        """Send a message via WebSocket to backend hub."""
+        with self.ws_lock:
+            if self.ws is None:
+                self.logger.warning(f"WebSocket not connected, cannot send: {command}")
+                return
 
-        payload = {
+            message = json.dumps({
+                "command": command,
+                "sender": "detector",
+                "target": target,
+                "data": data,
+            })
+            try:
+                self.ws.send(message)
+                self.logger.debug(f"WebSocket sent: {command}")
+            except Exception as e:
+                self.logger.warning(f"Failed to send WebSocket message: {e}")
+                self.ws = None  # Mark as disconnected
+
+    def notify_mount(self, device_node: str, mount_path: str):
+        """Send mount notification to frontend via WebSocket."""
+        self.logger.info(f"Notifying frontend of mount: {device_node} -> {mount_path}")
+        self._send_ws_message("device.mounted", {
             "device_node": device_node,
             "mount_path": mount_path,
-        }
-
-        self.logger.info(f"Notifying backend of mount: {device_node} -> {mount_path}")
-
-        try:
-            response = requests.post(url, json=payload, timeout=10)
-            response.raise_for_status()
-            self.logger.info(f"Backend notified successfully: {response.status_code}")
-        except requests.exceptions.ConnectionError as e:
-            self.logger.error(f"Failed to connect to backend API: {e}")
-        except requests.exceptions.Timeout:
-            self.logger.error("Backend API request timed out")
-        except requests.exceptions.HTTPError as e:
-            self.logger.error(f"Backend API returned error: {e}")
+        })
 
     def notify_unmount(self, device_node: str):
-        """Send unmount notification to backend API."""
-        api_url = self.config["api"]["url"].rstrip("/")
-        url = f"{api_url}/api/devices/unmount"
-
-        payload = {
+        """Send unmount notification to frontend via WebSocket."""
+        self.logger.info(f"Notifying frontend of unmount: {device_node}")
+        self._send_ws_message("device.unmounted", {
             "device_node": device_node,
-        }
+        })
 
-        self.logger.info(f"Notifying backend of unmount: {device_node}")
+    def send_status(self):
+        """Send current status to frontend via WebSocket."""
+        self.logger.debug(f"Sending status: running={self.running}, monitoring_enabled={self.monitoring_enabled}")
+        self._send_ws_message("detector.status", {
+            "running": self.running,
+            "monitoring_enabled": self.monitoring_enabled,
+            "pending_events": len(self.pending_events),
+        })
 
-        try:
-            response = requests.post(url, json=payload, timeout=10)
-            response.raise_for_status()
-            self.logger.info(f"Backend notified successfully: {response.status_code}")
-        except requests.exceptions.ConnectionError as e:
-            self.logger.error(f"Failed to connect to backend API: {e}")
-        except requests.exceptions.Timeout:
-            self.logger.error("Backend API request timed out")
-        except requests.exceptions.HTTPError as e:
-            self.logger.error(f"Backend API returned error: {e}")
+    def _start_websocket_client(self):
+        """Start WebSocket client connection in background thread."""
+        ws_url = self.config["api"]["websocket_url"]
+        detector = self
+
+        def on_open(ws):
+            detector.logger.info(f"WebSocket connected to {ws_url}")
+            with detector.ws_lock:
+                detector.ws = ws
+
+        def on_close(ws, close_status_code, close_msg):
+            detector.logger.info(f"WebSocket disconnected: {close_status_code} {close_msg}")
+            with detector.ws_lock:
+                detector.ws = None
+
+        def on_error(ws, error):
+            detector.logger.warning(f"WebSocket error: {error}")
+
+        def on_message(ws, message):
+            """Handle incoming WebSocket messages (commands from frontend)."""
+            try:
+                data = json.loads(message)
+            except json.JSONDecodeError as e:
+                detector.logger.warning(f"Invalid JSON received: {e}")
+                return
+
+            # Ignore messages from self
+            if data.get("sender") == "detector":
+                return
+
+            command = data.get("command", "")
+            detector.logger.debug(f"WebSocket received: {command}")
+
+            if command == "detector:status":
+                detector.send_status()
+            elif command == "detector:enable":
+                detector.monitoring_enabled = True
+                detector.logger.info("Monitoring enabled via WebSocket")
+                detector.send_status()
+            elif command == "detector:disable":
+                detector.monitoring_enabled = False
+                detector.logger.info("Monitoring disabled via WebSocket")
+                detector.send_status()
+            else:
+                detector.logger.debug(f"Unknown command: {command}")
+
+        def run_websocket():
+            """Run WebSocket connection with auto-reconnect."""
+            reconnect_delay = 5
+            while detector.running:
+                try:
+                    detector.logger.info(f"Connecting to WebSocket: {ws_url}")
+                    ws = websocket.WebSocketApp(
+                        ws_url,
+                        on_open=on_open,
+                        on_close=on_close,
+                        on_error=on_error,
+                        on_message=on_message,
+                    )
+                    ws.run_forever()
+                except Exception as e:
+                    detector.logger.warning(f"WebSocket connection error: {e}")
+
+                if detector.running:
+                    detector.logger.info(f"Reconnecting in {reconnect_delay}s...")
+                    if detector.shutdown_event.wait(reconnect_delay):
+                        break
+
+            detector.logger.info("WebSocket client stopped")
+
+        thread = threading.Thread(target=run_websocket, daemon=True)
+        thread.start()
+        self.logger.debug("WebSocket client thread started")
 
     def _start_control_server(self):
         """Start HTTP control server in background thread."""
@@ -356,12 +432,25 @@ class StinercutDetector:
                 request_key = self.headers.get("X-API-Key", "")
                 return request_key == api_key
 
+            def _send_cors_headers(self):
+                """Send CORS headers for cross-origin requests."""
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
+
             def _send_json(self, data: dict, status: int = 200):
                 """Send JSON response."""
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")
+                self._send_cors_headers()
                 self.end_headers()
                 self.wfile.write(json.dumps(data).encode())
+
+            def do_OPTIONS(self):
+                """Handle CORS preflight requests."""
+                self.send_response(204)
+                self._send_cors_headers()
+                self.end_headers()
 
             def do_GET(self):
                 """Handle GET requests."""
@@ -403,11 +492,15 @@ class StinercutDetector:
                     detector.logger.info("Monitoring enabled via HTTP API")
                     detector.monitoring_enabled = True
                     self._send_json({"status": "enabled", "monitoring_enabled": True})
+                    # Notify frontend via WebSocket
+                    threading.Thread(target=detector.send_status, daemon=True).start()
 
                 elif self.path == "/control/disable":
                     detector.logger.info("Monitoring disabled via HTTP API")
                     detector.monitoring_enabled = False
                     self._send_json({"status": "disabled", "monitoring_enabled": False})
+                    # Notify frontend via WebSocket
+                    threading.Thread(target=detector.send_status, daemon=True).start()
 
                 else:
                     self._send_json({"error": "Not found"}, 404)
@@ -498,6 +591,9 @@ class StinercutDetector:
         monitor.filter_by(subsystem="block")
 
         self.running = True
+
+        # Start WebSocket client connection
+        self._start_websocket_client()
 
         # Start HTTP control server if enabled
         self._start_control_server()

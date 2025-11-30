@@ -1,4 +1,8 @@
-"""Service control router for managing host services."""
+"""Service control router for managing host services.
+
+Note: Most detector control (status, enable, disable) is now handled via WebSocket
+through the unified hub. Only restart remains here for debugging purposes.
+"""
 
 import os
 
@@ -11,104 +15,6 @@ router = APIRouter(prefix="/api/services", tags=["services"])
 DETECTOR_URL = os.getenv("DETECTOR_URL", "http://host.docker.internal:8001")
 
 
-@router.get("/detector/status")
-async def get_detector_status():
-    """
-    Get detector service status.
-
-    Returns the current state of the detector service including
-    whether it's running and the number of pending device events.
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{DETECTOR_URL}/status", timeout=5.0)
-            response.raise_for_status()
-            return response.json()
-    except httpx.ConnectError:
-        return {
-            "running": False,
-            "error": "Cannot connect to detector service",
-            "service": "stinercut-detector",
-        }
-    except httpx.TimeoutException:
-        return {
-            "running": False,
-            "error": "Detector service timeout",
-            "service": "stinercut-detector",
-        }
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Detector service error: {e.response.status_code}",
-        )
-
-
-@router.post("/detector/enable")
-async def enable_detector():
-    """
-    Enable detector monitoring.
-
-    Sends an enable command to the detector's HTTP control API
-    to start processing device events.
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{DETECTOR_URL}/control/enable",
-                timeout=5.0,
-            )
-            response.raise_for_status()
-            return response.json()
-    except httpx.ConnectError:
-        raise HTTPException(
-            status_code=503,
-            detail="Cannot connect to detector service",
-        )
-    except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=504,
-            detail="Detector service timeout",
-        )
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Detector service error: {e.response.status_code}",
-        )
-
-
-@router.post("/detector/disable")
-async def disable_detector():
-    """
-    Disable detector monitoring.
-
-    Sends a disable command to the detector's HTTP control API
-    to stop processing device events. The daemon continues running.
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{DETECTOR_URL}/control/disable",
-                timeout=5.0,
-            )
-            response.raise_for_status()
-            return response.json()
-    except httpx.ConnectError:
-        raise HTTPException(
-            status_code=503,
-            detail="Cannot connect to detector service",
-        )
-    except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=504,
-            detail="Detector service timeout",
-        )
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Detector service error: {e.response.status_code}",
-        )
-
-
 @router.post("/detector/restart")
 async def restart_detector():
     """
@@ -116,6 +22,9 @@ async def restart_detector():
 
     Sends a restart command to the detector's HTTP control API.
     The service will shut down cleanly and systemd will restart it.
+
+    Note: This endpoint uses HTTP directly to the detector's control API
+    because restart is a management operation, not a real-time control command.
     """
     try:
         async with httpx.AsyncClient() as client:

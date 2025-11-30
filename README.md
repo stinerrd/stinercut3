@@ -90,7 +90,7 @@ docker-compose exec backend bash
 
 ### Database Access
 ```bash
-docker-compose exec mysql mysql -u tandem_user -ptandem_pass tandem_db
+docker-compose exec mysql mysql -u stiner -plocal stinercut
 ```
 
 ## Features (Planned)

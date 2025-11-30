@@ -1,13 +1,14 @@
 # Stinercut Media Detector
 
-Host service that monitors USB device events and notifies the backend when removable media is mounted or unmounted.
+Host service that monitors USB device events and communicates with the frontend via a unified WebSocket hub.
 
 ## Requirements
 
 - Linux with systemd
 - Python 3.8+
 - pyudev
-- Backend API running (for notifications)
+- websocket-client
+- Backend running with exposed port (default: 8002)
 
 ## Installation
 
@@ -66,7 +67,9 @@ Edit `/opt/stinercut-detector/config.ini`:
 
 ```ini
 [api]
-url = http://localhost:8000
+# WebSocket URL for backend hub (direct to Docker port, no SSL)
+# client_type=detector identifies this client to the hub for message routing
+websocket_url = ws://localhost:8002/ws?client_type=detector
 
 [detector]
 debounce_delay = 2.0
@@ -92,39 +95,94 @@ Restart service after changes:
 systemctl restart stinercut-detector
 ```
 
-## HTTP Control API
+## Architecture
 
-When `[control]` is enabled, the detector exposes an HTTP API for remote management.
+All clients connect to a single WebSocket hub at `/ws`. Messages include routing metadata for targeted delivery.
+
+```
+                    ┌─────────────────────────────────────┐
+                    │     Backend WebSocket Hub (:8002)   │
+                    │              /ws                    │
+                    └─────────────────────────────────────┘
+                           ▲                    ▲
+                           │                    │
+              ?client_type=detector    ?client_type=frontend
+                           │                    │
+                    ┌──────┴──────┐      ┌──────┴──────┐
+                    │  Detector   │      │  Frontend   │
+                    │   (host)    │      │  (browser)  │
+                    └─────────────┘      └─────────────┘
+```
+
+### Message Format
+
+All WebSocket messages use a unified structure:
+
+```json
+{
+  "command": "namespace:action",
+  "sender": "frontend|detector|backend",
+  "target": "all|frontend|detector",
+  "data": {}
+}
+```
+
+**Fields:**
+- `command`: Namespaced action (colon for commands, dot for events)
+- `sender`: Who sent the message
+- `target`: Who should receive (`all` = broadcast, or specific client type)
+- `data`: Command-specific payload
+
+### Commands (Frontend → Detector)
+
+| Command | Description |
+|---------|-------------|
+| `detector:status` | Request current detector status |
+| `detector:enable` | Enable device monitoring |
+| `detector:disable` | Disable device monitoring |
+
+### Events (Detector → Frontend)
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `detector.status` | `{running, monitoring_enabled, pending_events}` | Status update response |
+| `device.mounted` | `{device_node, mount_path}` | Device was mounted |
+| `device.unmounted` | `{device_node}` | Device was unmounted |
+
+### Event Flow Example
+
+1. User toggles monitoring switch in browser
+2. Frontend sends `detector:enable` command via WebSocket
+3. Hub routes message to detector client
+4. Detector enables monitoring, sends `detector.status` event
+5. Hub routes event to frontend client
+6. Frontend updates UI with new status
+
+## HTTP Control API (Debugging)
+
+The HTTP API on port 8001 remains available for manual testing and debugging.
 
 **Endpoints:**
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/status` | Returns service status (running, monitoring_enabled, pending_events) |
+| GET | `/status` | Returns service status |
 | POST | `/control/enable` | Enable device monitoring |
 | POST | `/control/disable` | Disable device monitoring |
-| POST | `/control/restart` | Triggers restart (systemd will restart the service) |
+| POST | `/control/restart` | Triggers service restart |
 
-**Monitoring State:**
-
-The detector starts with monitoring **disabled by default**. Device events are ignored until monitoring is explicitly enabled via the API. This prevents unintended operations when the service starts.
+**Note:** The frontend uses WebSocket for all control operations. HTTP endpoints are for debugging with curl.
 
 **Example:**
 ```bash
 # Get status
 curl http://localhost:8001/status
-# Response: {"running": true, "monitoring_enabled": false, "pending_events": 0, "service": "stinercut-detector"}
 
 # Enable monitoring
 curl -X POST http://localhost:8001/control/enable
-# Response: {"status": "enabled", "monitoring_enabled": true}
 
 # Disable monitoring
 curl -X POST http://localhost:8001/control/disable
-# Response: {"status": "disabled", "monitoring_enabled": false}
-
-# Restart service
-curl -X POST http://localhost:8001/control/restart
 ```
 
 **API Key Authentication:**
@@ -133,6 +191,10 @@ If `api_key` is set in config, include it in requests:
 ```bash
 curl -H "X-API-Key: your-secret-key" http://localhost:8001/status
 ```
+
+## Monitoring State
+
+The detector starts with monitoring **disabled by default**. Device events are ignored until monitoring is explicitly enabled via WebSocket command or HTTP API. This prevents unintended operations when the service starts.
 
 ## Adding Users
 
@@ -143,9 +205,11 @@ sudo usermod -aG stinercut <username>
 
 ## How It Works
 
-1. Monitors udev events for block devices (USB drives, SD cards)
-2. Filters for partition mount events
-3. Resolves mount point from `/proc/mounts`
-4. Sends POST request to backend API:
-   - `POST /api/devices/mount` with `{device_node, mount_path}`
-   - `POST /api/devices/unmount` with `{device_node}`
+1. Connects to backend WebSocket hub as `client_type=detector`
+2. Listens for commands from frontend (`detector:status`, `detector:enable`, `detector:disable`)
+3. Monitors udev events for block devices (USB drives, SD cards)
+4. Filters for partition mount events
+5. When monitoring is enabled and device events occur:
+   - Resolves mount point from `/proc/mounts`
+   - Sends `device.mounted` or `device.unmounted` events via WebSocket
+   - Hub routes events to frontend clients

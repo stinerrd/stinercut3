@@ -8,7 +8,7 @@
 {% block content %}
 <div class="row">
     {# Welcome Card #}
-    <div class="col-lg-6">
+    <div class="col-lg-4">
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">Welcome to Tandem Video Editor</h3>
@@ -25,7 +25,7 @@
     </div>
 
     {# Quick Stats Card #}
-    <div class="col-lg-6">
+    <div class="col-lg-4">
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">Quick Stats</h3>
@@ -51,6 +51,43 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    {# Detector Status Card #}
+    <div class="col-lg-4">
+        <div class="card" id="detector-status-card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="bi bi-usb-drive me-2"></i>Device Detector
+                </h3>
+                <div class="card-tools">
+                    <span id="detector-refresh-indicator" class="badge bg-secondary" style="display: none;">
+                        <i class="bi bi-arrow-repeat spin"></i>
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                {# Daemon Status #}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted">Daemon Status</span>
+                    <span id="detector-service-status" class="badge bg-secondary">Checking...</span>
+                </div>
+
+                {# Listener Toggle #}
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted">Device Listener</span>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox"
+                               id="detector-listener-toggle" role="switch" disabled>
+                        <label class="form-check-label" for="detector-listener-toggle"
+                               id="detector-listener-label">Loading...</label>
+                    </div>
+                </div>
+
+                {# Error Message Area #}
+                <div id="detector-error" class="alert alert-danger mt-3 mb-0" style="display: none;"></div>
             </div>
         </div>
     </div>

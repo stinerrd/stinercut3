@@ -9,7 +9,7 @@ The frontend application has 4 Eloquent models (Project, Video, Job, Asset) with
 - Create test bootstrap and base classes (DatabaseTestCase)
 - Create DatabaseFixtures for consistent test data generation
 - Create unit tests for all Eloquent models
-- Set up test database (tandem_db_test) with transaction-based isolation
+- Set up test database (stinercut_test) with transaction-based isolation
 
 ## Impact
 - Affected specs: `testing` (new capability)
