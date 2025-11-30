@@ -39,3 +39,4 @@ docker-compose.override.yml
 
 # Videos (optional - uncomment if you don't want to track videos)
 # /shared-videos/
+tmp/
