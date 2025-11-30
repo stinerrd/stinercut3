@@ -77,6 +77,10 @@ app.include_router(services.router)
 from routers import websocket
 app.include_router(websocket.router)
 
+# Font conversion router
+from routers import fonts
+app.include_router(fonts.router)
+
 # TODO: Implement other routers
 # from routers import videos, projects, jobs
 # app.include_router(videos.router, prefix="/api/videos", tags=["videos"])

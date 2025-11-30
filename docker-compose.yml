@@ -3,18 +3,20 @@ services:
     build:
       context: .
       dockerfile: docker/frontend/Dockerfile
-    container_name: tandem_frontend
+    container_name: stinercut_frontend
     volumes:
       - ./frontend:/var/www/html
       - shared-videos:/shared-videos
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     networks:
-      - tandem-network
+      - stinercut-network
       - traefik
     environment:
       - DATABASE_URL=mysql://stiner:local@mysql:3306/stinercut
-      - BACKEND_API_URL=https://api.stinercut.local
+      - BACKEND_API_URL=http://backend:8000
+      - WEBSOCKET_URL=wss://api.stinercut.local/ws
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.stinercut-frontend.rule=Host(`stinercut.local`)"
@@ -26,16 +28,17 @@ services:
     build:
       context: .
       dockerfile: docker/backend/Dockerfile
-    container_name: tandem_backend
+    container_name: stinercut_backend
     volumes:
       - ./backend:/app
       - shared-videos:/shared-videos
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     ports:
       - "8002:8000"
     networks:
-      - tandem-network
+      - stinercut-network
       - traefik
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -52,7 +55,7 @@ services:
 
   mysql:
     image: mysql:8.0
-    container_name: tandem_mysql
+    container_name: stinercut_mysql
     ports:
       - "3307:3306"
     environment:
@@ -63,8 +66,14 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     networks:
-      - tandem-network
+      - stinercut-network
     command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-plocal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
 volumes:
   shared-videos:
@@ -73,7 +82,7 @@ volumes:
     driver: local
 
 networks:
-  tandem-network:
+  stinercut-network:
     driver: bridge
   traefik:
     external: true
