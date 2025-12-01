@@ -13,7 +13,7 @@
     <link rel="manifest" href="{{ asset('images/favicon/site.webmanifest') }}">
 
     {% block stylesheets %}
-        {{ encore_entry_link_tags('app') }}
+        <link rel="stylesheet" href="{{ asset('adminlte/css/adminlte.css') }}">
     {% endblock %}
 </head>
 <body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
@@ -57,8 +57,8 @@
         {% include 'components/_footer.html.twig' %}
     </div>
 
-    {# Webpack Encore scripts #}
-    {{ encore_entry_script_tags('app') }}
+    {# AdminLTE scripts #}
+    <script src="{{ asset('adminlte/js/adminlte.js') }}"></script>
 
     {# Global JavaScript variables (injected by AppController) #}
     <script>

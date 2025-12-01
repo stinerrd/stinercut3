@@ -1,5 +1,10 @@
 twig:
     file_name_pattern: '*.twig'
+    paths:
+        '%kernel.project_dir%/src/Splashscreen/templates': Splashscreen
+        '%kernel.project_dir%/src/Settings/templates': Settings
+        '%kernel.project_dir%/src/Dashboard/templates': Dashboard
+        '%kernel.project_dir%/src/TandemMaster/templates': TandemMaster
 
 when@test:
     twig:

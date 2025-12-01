@@ -12,8 +12,6 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     nginx \
-    nodejs \
-    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure and install PHP extensions
