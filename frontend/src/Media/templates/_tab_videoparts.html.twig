@@ -1,0 +1,59 @@
+<div class="mb-3">
+    <button type="button" id="vp-upload-btn" class="btn btn-primary">
+        <i class="bi bi-upload me-2"></i>Upload Video
+    </button>
+</div>
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th style="width: 100px;">Thumbnail</th>
+                <th>Name</th>
+                <th style="width: 80px;">Type</th>
+                <th>Description</th>
+                <th style="width: 140px;">Created</th>
+                <th style="width: 120px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="vp-body">
+            {% for vp in items %}
+            <tr data-id="{{ vp.id }}" data-type="{{ vp.type }}">
+                <td>
+                    <div class="vp-thumbnail vp-preview-btn" data-id="{{ vp.id }}"
+                         style="width: 80px; height: 45px; background: #f0f0f0; border-radius: 4px; overflow: hidden; cursor: pointer;"
+                         title="Click to preview">
+                        {% if vp.hasThumbnail %}
+                        <img src="/api/videoparts/{{ vp.id }}/thumbnail"
+                             style="width: 100%; height: 100%; object-fit: cover;">
+                        {% else %}
+                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                            <i class="bi bi-play-circle" style="font-size: 1.5rem;"></i>
+                        </div>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="vp-name vp-preview-btn" data-id="{{ vp.id }}" style="cursor: pointer;" title="Click to preview">{{ vp.name }}</td>
+                <td>
+                    <span class="badge bg-{{ vp.type == 'intro' ? 'primary' : 'success' }}">
+                        {{ vp.type }}
+                    </span>
+                </td>
+                <td class="vp-description text-muted">{{ vp.description|default('-') }}</td>
+                <td>{{ vp.createdAt|date('Y-m-d H:i') }}</td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-outline-primary vp-edit-btn me-1" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-danger vp-delete-btn" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            {% else %}
+            <tr class="vp-empty-row">
+                <td colspan="6" class="text-center text-muted">No videos yet. Upload a video to get started.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

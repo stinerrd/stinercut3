@@ -1,0 +1,208 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Splashscreens - Stinercut{% endblock %}
+
+{% block page_title %}Media{% endblock %}
+{% block breadcrumb_active %}Media{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card card-primary card-outline">
+
+            <div class="card-body">
+                {# Category Tabs - fonts tab lazy loaded #}
+                <ul class="nav nav-tabs" id="splashscreenTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link active" id="tab-images" data-bs-toggle="tab"
+                           href="#content-images" role="tab"
+                           aria-controls="content-images" aria-selected="true">
+                            Splashscreens ({{ images|length }})
+                        </a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link" id="tab-fonts" data-bs-toggle="tab"
+                           href="#content-fonts" role="tab"
+                           aria-controls="content-fonts" aria-selected="false"
+                           data-tab-api-url="/api/splashscreens/tab/fonts"
+                           data-tab-content-id="fonts-content">
+                            Fonts
+                        </a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link" id="tab-videoparts" data-bs-toggle="tab"
+                           href="#content-videoparts" role="tab"
+                           aria-controls="content-videoparts" aria-selected="false"
+                           data-tab-api-url="/api/videoparts/tab/content"
+                           data-tab-content-id="videoparts-content">
+                            Videoparts
+                        </a>
+                    </li>
+                </ul>
+
+                {# Tab Content #}
+                <div class="tab-content pt-3" id="splashscreenTabContent">
+                    {# Images Tab - eager loaded #}
+                    <div class="tab-pane fade show active" id="content-images" role="tabpanel" aria-labelledby="tab-images">
+                        {% include '@Media/_tab_images.html.twig' with {'items': images} %}
+                    </div>
+
+                    {# Fonts Tab - lazy loaded #}
+                    <div class="tab-pane fade" id="content-fonts" role="tabpanel" aria-labelledby="tab-fonts">
+                        <div id="fonts-content">
+                            {# Content loaded via AJAX #}
+                        </div>
+                    </div>
+
+                    {# Videoparts Tab - lazy loaded #}
+                    <div class="tab-pane fade" id="content-videoparts" role="tabpanel" aria-labelledby="tab-videoparts">
+                        <div id="videoparts-content">
+                            {# Content loaded via AJAX #}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Hidden file input for SVG import #}
+<input type="file" id="svg-upload" style="display: none;" accept=".svg,image/svg+xml" />
+
+{# Hidden file input for TTF import #}
+<input type="file" id="ttf-upload" style="display: none;" accept=".ttf,.otf" />
+
+{# Hidden file input for video upload #}
+<input type="file" id="video-upload" style="display: none;" accept=".mp4,.mov,video/mp4,video/quicktime" />
+
+{# Edit Modal #}
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">Edit Splashscreen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="editNameInput" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="editNameInput" />
+                </div>
+                <div class="mb-3">
+                    <label for="editSvgContent" class="form-label">SVG Content</label>
+                    <textarea class="form-control font-monospace" id="editSvgContent" rows="15" style="font-size: 12px;"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Preview</label>
+                    <div id="editPreview" style="border: 1px solid #dee2e6; border-radius: 4px; padding: 10px; min-height: 200px; background: #f8f9fa;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="editModalSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Confirm Dialog Modal #}
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalLabel">Confirm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="confirmModalBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmModalBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Videopart Upload Modal #}
+<div class="modal fade" id="vpUploadModal" tabindex="-1" aria-labelledby="vpUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="vpUploadModalLabel">Upload Video</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="vpUploadName" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="vpUploadName" placeholder="Leave empty to use filename" />
+                </div>
+                <div class="mb-3">
+                    <label for="vpUploadType" class="form-label">Type <span class="text-danger">*</span></label>
+                    <select class="form-select" id="vpUploadType" required>
+                        <option value="">Select type...</option>
+                        <option value="intro">Intro</option>
+                        <option value="outro">Outro</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="vpUploadDescription" class="form-label">Description</label>
+                    <textarea class="form-control" id="vpUploadDescription" rows="3" placeholder="Optional description"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Selected file</label>
+                    <div id="vpUploadFilename" class="form-control-plaintext text-muted">No file selected</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="vpUploadSubmitBtn">Upload</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Videopart Edit Modal #}
+<div class="modal fade" id="vpEditModal" tabindex="-1" aria-labelledby="vpEditModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="vpEditModalLabel">Edit Videopart</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="vpEditName" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="vpEditName" />
+                </div>
+                <div class="mb-3">
+                    <label for="vpEditDescription" class="form-label">Description</label>
+                    <textarea class="form-control" id="vpEditDescription" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="vpEditSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Videopart Preview Modal #}
+<div class="modal fade" id="vpPreviewModal" tabindex="-1" aria-labelledby="vpPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="vpPreviewModalLabel">Video Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 bg-black">
+                <video id="vpPreviewPlayer" controls style="width: 100%; max-height: 70vh; display: block;">
+                    <source id="vpPreviewSource" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

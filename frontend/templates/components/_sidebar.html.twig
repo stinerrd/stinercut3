@@ -31,12 +31,6 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
-                        <i class="nav-icon bi bi-hdd"></i>
-                        <p>Media</p>
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a href="{{ path('app_clients') }}" class="nav-link {% if app.request.attributes.get('_route') == 'app_clients' %}active{% endif %}">
                         <i class="nav-icon bi bi-people"></i>
                         <p>Clients</p>
@@ -57,7 +51,7 @@
                 <li class="nav-item">
                     <a href="{{ path('app_splashscreens') }}" class="nav-link {% if app.request.attributes.get('_route') == 'app_splashscreens' %}active{% endif %}">
                         <i class="nav-icon bi bi-display"></i>
-                        <p>Splashscreens</p>
+                        <p>Media</p>
                     </a>
                 </li>
                 <li class="nav-item">
