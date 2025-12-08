@@ -1,0 +1,31 @@
+### Detect QR code in video file
+POST https://api.stinercut.local/api/detectqr
+Content-Type: application/json
+
+{
+  "video_path": "GX019291.MP4"
+}
+
+### Detect QR - file not found (expect 404)
+POST https://api.stinercut.local/api/detectqr
+Content-Type: application/json
+
+{
+  "video_path": "nonexistent.mp4"
+}
+
+### Detect QR - path traversal attempt (expect 400)
+POST https://api.stinercut.local/api/detectqr
+Content-Type: application/json
+
+{
+  "video_path": "../etc/passwd"
+}
+
+### Detect QR - via localhost
+POST http://localhost:8002/api/detectqr
+Content-Type: application/json
+
+{
+  "video_path": "GOPR9290.MP4"
+}

@@ -1,0 +1,59 @@
+<div id="clients_content">
+    {% if clients is empty %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>No clients found matching your criteria.
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th class="text-center">Marketing</th>
+                        <th>Created</th>
+                        <th style="width: 100px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for client in clients %}
+                    <tr data-id="{{ client.id }}">
+                        <td class="client-name">{{ client.name }}</td>
+                        <td class="client-email">{{ client.email ?? '-' }}</td>
+                        <td class="client-phone">{{ client.phone ?? '-' }}</td>
+                        <td class="text-center client-marketing">
+                            {% if client.marketingFlag %}
+                                <i class="bi bi-check-circle-fill text-success" title="Marketing allowed"></i>
+                            {% else %}
+                                <i class="bi bi-x-circle text-muted" title="Marketing not allowed"></i>
+                            {% endif %}
+                        </td>
+                        <td class="client-created">{{ client.createdAt|date('Y-m-d') }}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary client-edit-btn me-1" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger client-delete-btn" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if pagination is defined and pagination.totalPages > 0 %}
+            {% include '_pagination.html.twig' with {
+                currentPage: pagination.currentPage,
+                totalPages: pagination.totalPages,
+                total: pagination.total,
+                perPage: pagination.perPage,
+                itemsCount: clients|length,
+                entityName: 'Clients',
+                ariaLabel: 'Client pagination'
+            } %}
+        {% endif %}
+    {% endif %}
+</div>

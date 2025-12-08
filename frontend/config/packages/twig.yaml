@@ -4,7 +4,9 @@ twig:
         '%kernel.project_dir%/src/Splashscreen/templates': Splashscreen
         '%kernel.project_dir%/src/Settings/templates': Settings
         '%kernel.project_dir%/src/Dashboard/templates': Dashboard
-        '%kernel.project_dir%/src/TandemMaster/templates': TandemMaster
+        '%kernel.project_dir%/src/Videographer/templates': Videographer
+        '%kernel.project_dir%/src/Workload/templates': Workload
+        '%kernel.project_dir%/src/Client/templates': Client
 
 when@test:
     twig:

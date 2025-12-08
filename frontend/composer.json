@@ -7,6 +7,7 @@
         "php": ">=8.2",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "endroid/qr-code": "^5.0",
         "symfony/console": "7.2.*",
         "symfony/dotenv": "7.2.*",
         "symfony/flex": "^2.10",
@@ -15,6 +16,7 @@
         "symfony/mime": "7.2.*",
         "symfony/runtime": "7.2.*",
         "symfony/twig-bundle": "7.2.*",
+        "symfony/uid": "7.2.*",
         "symfony/webpack-encore-bundle": "^2.3",
         "symfony/yaml": "7.2.*",
         "wouterj/eloquent-bundle": "^2.7"

@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     libavutil-dev \
     libswscale-dev \
     libavfilter-dev \
+    libzbar0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -24,6 +25,12 @@ COPY backend /app
 
 # Create shared video directories
 RUN mkdir -p /shared-videos/uploads /shared-videos/temp /shared-videos/output /shared-videos/thumbnails
+
+# Create videodata directory
+RUN mkdir -p /videodata
+
+# Set custom bash prompt
+RUN echo 'PS1="\[\033[01;32m\]\u@backend\[\033[00m\]:\[\033[01;34m\]\w\[\033[01;31m\] \$\[\033[00m\] "' >> /root/.bashrc
 
 # Expose port
 EXPOSE 8000

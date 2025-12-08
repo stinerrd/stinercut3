@@ -1,0 +1,116 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Videographers - Tandem Video Editor{% endblock %}
+
+{% block page_title %}Videographers{% endblock %}
+{% block breadcrumb_active %}Videographers{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card card-primary card-outline">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="bi bi-camera-video me-2"></i>Videographers
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="mb-3 row">
+                    <div class="col-md-8">
+                        <input type="text" id="videographer-name" class="form-control" placeholder="Enter videographer name..." />
+                    </div>
+                    <div class="col-md-4">
+                        <button type="button" id="videographer-add-btn" class="btn btn-primary w-100">
+                            <i class="bi bi-plus-circle me-2"></i>Add Videographer
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">Image</th>
+                                <th>Name</th>
+                                <th style="width: 100px;">Active</th>
+                                <th style="width: 100px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="videographer-table-body">
+                            {% for v in videographers %}
+                            <tr data-id="{{ v.id }}" data-has-image="{{ v.hasImage ? '1' : '0' }}">
+                                <td>
+                                    {% if v.hasImage %}
+                                    <img class="videographer-avatar" src="/api/videographers/{{ v.id }}/image" alt="{{ v.name }}"
+                                         style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer;" />
+                                    {% else %}
+                                    <div class="videographer-avatar videographer-placeholder" style="width: 60px; height: 60px; background: #dee2e6; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                                        <i class="bi bi-person" style="font-size: 28px; color: #6c757d;"></i>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td class="videographer-name">{{ v.name }}</td>
+                                <td>
+                                    <input type="checkbox" class="videographer-active form-check-input" {% if v.active %}checked{% endif %} />
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary videographer-edit-btn me-1" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger videographer-delete-btn" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden file input for avatar upload -->
+<input type="file" id="avatar-upload" style="display: none;" accept="image/*" />
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">Edit Videographer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="editNameInput" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="editNameInput" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="editModalSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Dialog Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalLabel">Confirm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="confirmModalBody">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmModalBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

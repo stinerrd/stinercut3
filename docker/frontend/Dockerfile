@@ -34,11 +34,17 @@ COPY docker/frontend/nginx.conf /etc/nginx/sites-available/default
 # Create shared video directories
 RUN mkdir -p /shared-videos/uploads /shared-videos/temp /shared-videos/output /shared-videos/thumbnails
 
+# Create videodata directory
+RUN mkdir -p /videodata
+
 # Set proper permissions
-RUN chown -R www-data:www-data /var/www/html /shared-videos
+RUN chown -R www-data:www-data /var/www/html /shared-videos /videodata
+
+# Set custom bash prompt
+RUN echo 'PS1="\[\033[01;32m\]\u@frontend\[\033[00m\]:\[\033[01;34m\]\w\[\033[01;31m\] \$\[\033[00m\] "' >> /root/.bashrc
 
 # Expose port 80
 EXPOSE 80
 
 # Start nginx and php-fpm
-CMD service nginx start && php-fpm
+CMD ["sh", "-c", "service nginx start && php-fpm"]

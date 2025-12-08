@@ -37,9 +37,21 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="{{ path('app_tandem_masters') }}" class="nav-link {% if app.request.attributes.get('_route') == 'app_tandem_masters' %}active{% endif %}">
+                    <a href="{{ path('app_clients') }}" class="nav-link {% if app.request.attributes.get('_route') == 'app_clients' %}active{% endif %}">
                         <i class="nav-icon bi bi-people"></i>
-                        <p>Tandem Masters</p>
+                        <p>Clients</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ path('app_workloads') }}" class="nav-link {% if app.request.attributes.get('_route') == 'app_workloads' %}active{% endif %}">
+                        <i class="nav-icon bi bi-list-task"></i>
+                        <p>Workloads</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ path('app_videographers') }}" class="nav-link {% if app.request.attributes.get('_route') == 'app_videographers' %}active{% endif %}">
+                        <i class="nav-icon bi bi-camera-video"></i>
+                        <p>Videographers</p>
                     </a>
                 </li>
                 <li class="nav-item">

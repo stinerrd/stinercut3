@@ -81,6 +81,10 @@ app.include_router(websocket.router)
 from routers import fonts
 app.include_router(fonts.router)
 
+# QR code detection router
+from routers import detectqr
+app.include_router(detectqr.router)
+
 # TODO: Implement other routers
 # from routers import videos, projects, jobs
 # app.include_router(videos.router, prefix="/api/videos", tags=["videos"])

@@ -99,6 +99,7 @@ docker-compose exec -T mysql mysql -u stiner -plocal stinercut < backup.sql
 - Frontend ← Backend via WebSocket for real-time progress updates
 - Both services → MySQL (port 3306 internal, 3307 external) for data persistence
 - Both services → /shared-videos volume for video file access
+- Both services → /videodata bind mount for project/workload configuration data
 
 ### Shared Storage Structure
 ```
@@ -109,6 +110,14 @@ docker-compose exec -T mysql mysql -u stiner -plocal stinercut < backup.sql
 └── thumbnails/   # Video preview thumbnails
 ```
 
+### Video Data Storage Structure
+```
+/videodata/
+├── projects/     # Project-specific configuration
+├── workloads/    # Workload metadata and configuration
+└── cache/        # Optional: cached data files
+```
+
 ### Frontend Structure (Symfony + Eloquent)
 ```
 frontend/
@@ -116,14 +125,14 @@ frontend/
 │   ├── Controller/       # HTTP request handlers
 │   │   ├── HomeController.php
 │   │   ├── SettingsController.php
-│   │   └── TandemMastersController.php
+│   │   └── VideographersController.php
 │   └── Models/           # Eloquent ORM models
 │       ├── Project.php
 │       ├── Video.php
 │       ├── Job.php
 │       ├── Asset.php
 │       ├── Setting.php
-│       └── TandemMaster.php
+│       └── Videographer.php
 ├── templates/            # Twig templates
 ├── migrations/           # Eloquent migrations
 └── assets/               # JS/CSS (Webpack Encore)
@@ -176,7 +185,7 @@ backend/
 - `jobs` - Processing job tracking
 - `assets` - Intro/outro/watermark assets
 - `settings` - Application settings
-- `tandem_masters` - Tandem master profiles
+- `videographer` - Videographer profiles
 - `migrations` - Eloquent migration tracking
 
 ## Development Workflow
@@ -199,3 +208,6 @@ backend/
 - All video file paths in database should be relative to `/shared-videos/`
 - Uses Eloquent ORM (not Doctrine) for frontend database operations
 - create files readable for all
+- `/videodata` contains project/workload configuration and metadata files
+- All videodata file paths should be relative to `/videodata/`
+- Frontend and backend both have read/write access to `/videodata`

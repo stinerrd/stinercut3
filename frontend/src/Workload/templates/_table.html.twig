@@ -1,0 +1,106 @@
+<div id="workloads_content">
+    {% if workloads is empty %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>No workloads found matching your criteria.
+        </div>
+    {% else %}
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="table-light">
+                    <tr>
+                        <th>Client</th>
+                        <th>Type</th>
+                        <th>Videographer</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th class="text-center">Video</th>
+                        <th class="text-center">Photo</th>
+                        <th class="text-center">QR</th>
+                        <th style="width: 100px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for workload in workloads %}
+                    <tr data-id="{{ workload.id }}" data-type="{{ workload.type }}" data-client-id="{{ workload.clientId }}">
+                        <td class="workload-client">{{ workload.clientName ?? '-' }}</td>
+                        <td class="workload-type">{{ workload.typeLabel }}</td>
+                        <td class="workload-videographer" data-videographer-id="{{ workload.videographerId }}">
+                            {{ workload.videographerName ?? '-' }}
+                        </td>
+                        <td class="workload-status">
+                            {% set statusClass = {
+                                'created': 'bg-secondary',
+                                'processing': 'bg-primary',
+                                'done': 'bg-success',
+                                'archived': 'bg-dark'
+                            } %}
+                            <span class="badge {{ statusClass[workload.status] ?? 'bg-secondary' }}">
+                                {{ workload.status|capitalize }}
+                            </span>
+                        </td>
+                        <td class="workload-desired-date">{{ workload.desiredDate|date('Y-m-d') }}</td>
+                        <td class="text-center workload-video">
+                            {% set videoClass = {
+                                'yes': 'text-success',
+                                'no': 'text-danger',
+                                'maybe': 'text-warning'
+                            } %}
+                            {% set videoIcon = {
+                                'yes': 'bi-check-circle-fill',
+                                'no': 'bi-x-circle-fill',
+                                'maybe': 'bi-question-circle-fill'
+                            } %}
+                            <i class="bi {{ videoIcon[workload.video] }} {{ videoClass[workload.video] }}" title="Video: {{ workload.video }}"></i>
+                        </td>
+                        <td class="text-center workload-photo">
+                            {% set photoClass = {
+                                'yes': 'text-success',
+                                'no': 'text-danger',
+                                'maybe': 'text-warning'
+                            } %}
+                            {% set photoIcon = {
+                                'yes': 'bi-check-circle-fill',
+                                'no': 'bi-x-circle-fill',
+                                'maybe': 'bi-question-circle-fill'
+                            } %}
+                            <i class="bi {{ photoIcon[workload.photo] }} {{ photoClass[workload.photo] }}" title="Photo: {{ workload.photo }}"></i>
+                        </td>
+                        <td class="text-center">
+                            {% if workload.qr %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary workload-qr-btn"
+                                        data-qr="{{ workload.qr|base64_encode }}"
+                                        data-uuid="{{ workload.uuid }}"
+                                        title="View QR Code">
+                                    <i class="bi bi-qr-code"></i>
+                                </button>
+                            {% else %}
+                                <span class="text-muted small">No QR</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary workload-edit-btn me-1" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger workload-delete-btn" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if pagination is defined and pagination.totalPages > 0 %}
+            {% include '_pagination.html.twig' with {
+                currentPage: pagination.currentPage,
+                totalPages: pagination.totalPages,
+                total: pagination.total,
+                perPage: pagination.perPage,
+                itemsCount: workloads|length,
+                entityName: 'Workloads',
+                ariaLabel: 'Workload pagination'
+            } %}
+        {% endif %}
+    {% endif %}
+</div>
