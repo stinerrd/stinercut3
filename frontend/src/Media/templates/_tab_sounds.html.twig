@@ -1,0 +1,67 @@
+<div class="mb-3">
+    <button type="button" id="snd-upload-btn" class="btn btn-primary">
+        <i class="bi bi-music-note-beamed me-2"></i>Upload Sound
+    </button>
+</div>
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th style="width: 100px;">Waveform</th>
+                <th>Name</th>
+                <th style="width: 100px;">Type</th>
+                <th>Description</th>
+                <th style="width: 100px;">Duration</th>
+                <th style="width: 140px;">Created</th>
+                <th style="width: 120px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="snd-body">
+            {% for snd in items %}
+            <tr data-id="{{ snd.id }}" data-type="{{ snd.type }}">
+                <td>
+                    <div class="snd-waveform snd-preview-btn" data-id="{{ snd.id }}"
+                         data-has-waveform="{{ snd.hasWaveform ? '1' : '0' }}"
+                         style="width: 80px; height: 45px; background: #f0f0f0; border-radius: 4px; overflow: hidden; cursor: pointer;"
+                         title="Click to preview">
+                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                            <i class="bi bi-music-note-beamed" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </td>
+                <td class="snd-name snd-preview-btn" data-id="{{ snd.id }}"
+                    style="cursor: pointer;" title="Click to preview">{{ snd.name }}</td>
+                <td>
+                    {% set badgeClass = snd.type == 'boden' ? 'secondary' :
+                                        (snd.type == 'plane' ? 'info' :
+                                        (snd.type == 'freefall' ? 'primary' : 'success')) %}
+                    <span class="badge bg-{{ badgeClass }}">
+                        {{ snd.type }}
+                    </span>
+                </td>
+                <td class="snd-description text-muted">{{ snd.description|default('-') }}</td>
+                <td class="snd-duration">
+                    {% if snd.duration %}
+                        {{ (snd.duration / 60)|number_format(0) }}:{{ '%02d'|format(snd.duration % 60) }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>{{ snd.createdAt|date('Y-m-d H:i') }}</td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-outline-primary snd-edit-btn me-1" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-danger snd-delete-btn" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            {% else %}
+            <tr class="snd-empty-row">
+                <td colspan="7" class="text-center text-muted">No sounds yet. Upload an MP3 or WAV file to get started.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

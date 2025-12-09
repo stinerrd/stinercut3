@@ -94,19 +94,48 @@ class VideopartService
     }
 
     /**
-     * Delete a videopart and its file.
+     * Delete a videopart, its file, and associated folder.
      */
     public function delete(Videopart $entity): bool
     {
-        // Delete physical file
         if ($entity->getFilePath()) {
             $fullPath = self::UPLOAD_DIR . '/' . $entity->getFilePath();
+
+            // Delete physical video file
             if (file_exists($fullPath)) {
                 @unlink($fullPath);
+            }
+
+            // Delete associated folder (for resolution variants)
+            $folderPath = pathinfo($fullPath, PATHINFO_DIRNAME) . '/' . pathinfo($fullPath, PATHINFO_FILENAME);
+            if (is_dir($folderPath)) {
+                $this->deleteDirectory($folderPath);
             }
         }
 
         return $this->repository->deleteEntity($entity);
+    }
+
+    /**
+     * Recursively delete a directory and its contents.
+     */
+    private function deleteDirectory(string $dir): bool
+    {
+        if (!is_dir($dir)) {
+            return false;
+        }
+
+        $items = array_diff(scandir($dir), ['.', '..']);
+        foreach ($items as $item) {
+            $path = $dir . '/' . $item;
+            if (is_dir($path)) {
+                $this->deleteDirectory($path);
+            } else {
+                @unlink($path);
+            }
+        }
+
+        return @rmdir($dir);
     }
 
     /**

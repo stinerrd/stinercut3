@@ -11,6 +11,7 @@
                 <th>Name</th>
                 <th style="width: 80px;">Type</th>
                 <th>Description</th>
+                <th style="width: 100px;">Duration</th>
                 <th style="width: 140px;">Created</th>
                 <th style="width: 120px;">Actions</th>
             </tr>
@@ -39,6 +40,13 @@
                     </span>
                 </td>
                 <td class="vp-description text-muted">{{ vp.description|default('-') }}</td>
+                <td class="vp-duration">
+                    {% if vp.duration %}
+                        {{ (vp.duration / 60)|number_format(0) }}:{{ '%02d'|format(vp.duration % 60) }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
                 <td>{{ vp.createdAt|date('Y-m-d H:i') }}</td>
                 <td>
                     <button type="button" class="btn btn-sm btn-outline-primary vp-edit-btn me-1" title="Edit">
@@ -51,7 +59,7 @@
             </tr>
             {% else %}
             <tr class="vp-empty-row">
-                <td colspan="6" class="text-center text-muted">No videos yet. Upload a video to get started.</td>
+                <td colspan="7" class="text-center text-muted">No videos yet. Upload a video to get started.</td>
             </tr>
             {% endfor %}
         </tbody>

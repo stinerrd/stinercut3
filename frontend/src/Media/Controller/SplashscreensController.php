@@ -20,6 +20,8 @@ class SplashscreensController extends AppController
     {
         $this->addJs('js/lazy-tabs.js');
         $this->addJs('js/splashscreens.js');
+        $this->addJs('js/videoparts.js');
+        $this->addJs('js/sounds.js');
 
         $images = $this->splashscreenService->getImages();
 

@@ -15,6 +15,7 @@ class Videopart
     private ?string $description = null;
     private ?string $filePath = null;
     private ?string $thumbnail = null;
+    private ?int $duration = null;
     private ?DateTimeInterface $createdAt = null;
     private ?DateTimeInterface $updatedAt = null;
 
@@ -89,6 +90,17 @@ class Videopart
         return $this->thumbnail !== null && $this->thumbnail !== '';
     }
 
+    public function getDuration(): ?int
+    {
+        return $this->duration;
+    }
+
+    public function setDuration(?int $duration): self
+    {
+        $this->duration = $duration;
+        return $this;
+    }
+
     public function getCreatedAt(): ?DateTimeInterface
     {
         return $this->createdAt;
@@ -130,6 +142,7 @@ class Videopart
             'description' => $this->description,
             'file_path' => $this->filePath,
             'has_thumbnail' => $this->hasThumbnail(),
+            'duration' => $this->duration,
             'created_at' => $this->createdAt?->format('Y-m-d H:i:s'),
             'updated_at' => $this->updatedAt?->format('Y-m-d H:i:s'),
         ];

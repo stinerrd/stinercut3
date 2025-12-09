@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, Base
-from models import Project, Video, Job, Asset  # noqa: F401
+from models import Project, Video, Job, Asset, Videopart  # noqa: F401
 
 
 @asynccontextmanager
@@ -84,6 +84,10 @@ app.include_router(fonts.router)
 # QR code detection router
 from routers import detectqr
 app.include_router(detectqr.router)
+
+# Videopart processing router
+from routers import videopart
+app.include_router(videopart.router)
 
 # TODO: Implement other routers
 # from routers import videos, projects, jobs

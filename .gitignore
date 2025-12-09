@@ -40,3 +40,8 @@ docker-compose.override.yml
 # Videos (optional - uncomment if you don't want to track videos)
 # /shared-videos/
 tmp/
+
+# Videodata - ignore all files but keep folder structure via .gitkeep
+/videodata/**/*
+!/videodata/**/
+!/videodata/**/.gitkeep

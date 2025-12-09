@@ -15,7 +15,6 @@ return new class extends Migration
                 $table->string("type", 50);  // 'intro' or 'outro'
                 $table->text("description")->nullable();
                 $table->string("file_path", 500);
-                $table->binary("thumbnail")->nullable();  // LONGBLOB for thumbnail
                 $table->timestamps();
 
                 $table->charset = "utf8mb4";
@@ -25,6 +24,9 @@ return new class extends Migration
                 $table->index("type");
                 $table->index("name");
             });
+
+            // Add LONGBLOB column for thumbnail (Blueprint doesn't support LONGBLOB directly)
+            Schema::getConnection()->statement("ALTER TABLE videopart ADD COLUMN thumbnail LONGBLOB NULL AFTER file_path");
         }
     }
 

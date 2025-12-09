@@ -6,5 +6,6 @@ from models.video import Video
 from models.job import Job
 from models.asset import Asset
 from models.setting import Setting
+from models.videopart import Videopart
 
-__all__ = ["Project", "Video", "Job", "Asset", "Setting"]
+__all__ = ["Project", "Video", "Job", "Asset", "Setting", "Videopart"]

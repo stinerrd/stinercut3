@@ -1,12 +1,17 @@
 """
 FFmpeg Service
-Encapsulates FFmpeg/ffprobe operations for video processing.
+Encapsulates FFmpeg/ffprobe operations for video and audio processing.
 """
+import os
 import ffmpeg
 
 
 class FFmpegService:
     """Encapsulates FFmpeg/ffprobe operations."""
+
+    # =====================
+    # Video operations
+    # =====================
 
     def get_duration(self, video_path: str) -> float:
         """Get video duration in seconds using ffprobe."""
@@ -31,6 +36,21 @@ class FFmpegService:
         except ffmpeg.Error as e:
             raise ValueError(
                 f"Failed to extract frame: {e.stderr.decode() if e.stderr else str(e)}"
+            )
+
+    def extract_thumbnail_jpeg(self, video_path: str, timestamp: float) -> bytes:
+        """Extract a single frame at timestamp as JPEG bytes."""
+        try:
+            out, _ = (
+                ffmpeg
+                .input(video_path, ss=timestamp)
+                .output('pipe:', vframes=1, format='image2', vcodec='mjpeg', **{'q:v': 2})
+                .run(capture_stdout=True, capture_stderr=True)
+            )
+            return out
+        except ffmpeg.Error as e:
+            raise ValueError(
+                f"Failed to extract thumbnail: {e.stderr.decode() if e.stderr else str(e)}"
             )
 
     def get_video_info(self, video_path: str) -> dict:
@@ -65,4 +85,69 @@ class FFmpegService:
         except ffmpeg.Error as e:
             raise ValueError(
                 f"Failed to get video info: {e.stderr.decode() if e.stderr else str(e)}"
+            )
+
+    # =====================
+    # Audio operations
+    # =====================
+
+    def get_audio_duration(self, audio_path: str) -> float:
+        """Get audio duration in seconds using ffprobe."""
+        try:
+            probe = ffmpeg.probe(audio_path)
+            return float(probe['format']['duration'])
+        except ffmpeg.Error as e:
+            raise ValueError(
+                f"Failed to probe audio: {e.stderr.decode() if e.stderr else str(e)}"
+            )
+
+    def convert_to_wav_normalized(self, input_path: str, output_path: str) -> None:
+        """
+        Convert audio to WAV format with loudness normalization.
+        Uses EBU R128 loudness standard (I=-23, TP=-1.5, LRA=11).
+
+        Args:
+            input_path: Path to source audio file (MP3 or WAV)
+            output_path: Path for output WAV file
+        """
+        try:
+            (
+                ffmpeg
+                .input(input_path)
+                .filter('loudnorm', I=-23, TP=-1.5, LRA=11)
+                .output(output_path, acodec='pcm_s16le', ar=44100)
+                .overwrite_output()
+                .run(capture_stdout=True, capture_stderr=True)
+            )
+            # Set file permissions
+            os.chmod(output_path, 0o644)
+        except ffmpeg.Error as e:
+            raise ValueError(
+                f"Failed to convert audio: {e.stderr.decode() if e.stderr else str(e)}"
+            )
+
+    def generate_waveform_image(self, audio_path: str, width: int = 1200, height: int = 300) -> bytes:
+        """
+        Generate a waveform image (PNG) from an audio file.
+
+        Args:
+            audio_path: Path to audio file
+            width: Image width in pixels (default 1200)
+            height: Image height in pixels (default 300)
+
+        Returns:
+            PNG image as bytes
+        """
+        try:
+            out, _ = (
+                ffmpeg
+                .input(audio_path)
+                .filter('showwavespic', s=f'{width}x{height}', colors='#3498db', scale='sqrt', draw='full')
+                .output('pipe:', vframes=1, format='image2', vcodec='png')
+                .run(capture_stdout=True, capture_stderr=True)
+            )
+            return out
+        except ffmpeg.Error as e:
+            raise ValueError(
+                f"Failed to generate waveform: {e.stderr.decode() if e.stderr else str(e)}"
             )

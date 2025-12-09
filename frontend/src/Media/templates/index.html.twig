@@ -38,6 +38,15 @@
                             Videoparts
                         </a>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link" id="tab-sounds" data-bs-toggle="tab"
+                           href="#content-sounds" role="tab"
+                           aria-controls="content-sounds" aria-selected="false"
+                           data-tab-api-url="/api/sounds/tab/content"
+                           data-tab-content-id="sounds-content">
+                            Sounds
+                        </a>
+                    </li>
                 </ul>
 
                 {# Tab Content #}
@@ -60,6 +69,13 @@
                             {# Content loaded via AJAX #}
                         </div>
                     </div>
+
+                    {# Sounds Tab - lazy loaded #}
+                    <div class="tab-pane fade" id="content-sounds" role="tabpanel" aria-labelledby="tab-sounds">
+                        <div id="sounds-content">
+                            {# Content loaded via AJAX #}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -74,6 +90,9 @@
 
 {# Hidden file input for video upload #}
 <input type="file" id="video-upload" style="display: none;" accept=".mp4,.mov,video/mp4,video/quicktime" />
+
+{# Hidden file input for audio upload #}
+<input type="file" id="audio-upload" style="display: none;" accept=".mp3,.wav,audio/mpeg,audio/mp3,audio/wav,audio/x-wav" />
 
 {# Edit Modal #}
 <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
@@ -197,10 +216,97 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-0 bg-black">
-                <video id="vpPreviewPlayer" controls style="width: 100%; max-height: 70vh; display: block;">
-                    <source id="vpPreviewSource" type="video/mp4">
+                <video id="vpPreviewPlayer" controls preload="none" style="width: 100%; max-height: 70vh; display: block;">
                     Your browser does not support the video tag.
                 </video>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Sound Upload Modal #}
+<div class="modal fade" id="sndUploadModal" tabindex="-1" aria-labelledby="sndUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sndUploadModalLabel">Upload Sound</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="sndUploadName" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="sndUploadName" placeholder="Leave empty to use filename" />
+                </div>
+                <div class="mb-3">
+                    <label for="sndUploadType" class="form-label">Type <span class="text-danger">*</span></label>
+                    <select class="form-select" id="sndUploadType" required>
+                        <option value="">Select type...</option>
+                        <option value="boden">Boden (Ground)</option>
+                        <option value="plane">Plane</option>
+                        <option value="freefall">Freefall</option>
+                        <option value="canopy">Canopy</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="sndUploadDescription" class="form-label">Description</label>
+                    <textarea class="form-control" id="sndUploadDescription" rows="3" placeholder="Optional description"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Selected file</label>
+                    <div id="sndUploadFilename" class="form-control-plaintext text-muted">No file selected</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="sndUploadSubmitBtn">Upload</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Sound Edit Modal #}
+<div class="modal fade" id="sndEditModal" tabindex="-1" aria-labelledby="sndEditModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sndEditModalLabel">Edit Sound</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="sndEditName" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="sndEditName" />
+                </div>
+                <div class="mb-3">
+                    <label for="sndEditDescription" class="form-label">Description</label>
+                    <textarea class="form-control" id="sndEditDescription" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="sndEditSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Sound Preview Modal #}
+<div class="modal fade" id="sndPreviewModal" tabindex="-1" aria-labelledby="sndPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sndPreviewModalLabel">Audio Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 bg-dark">
+                <div id="sndPreviewWaveform" style="width: 100%; height: 150px; background: #1a1a1a; display: none; position: relative;">
+                    <img id="sndPreviewWaveformImg" src="" alt="Waveform" style="width: 100%; height: 100%; object-fit: fill;">
+                    <div id="sndPreviewProgress" style="position: absolute; top: 0; left: 0; width: 0%; height: 100%; background: rgba(255, 255, 255, 0.2); pointer-events: none;"></div>
+                    <div id="sndPreviewCursor" style="position: absolute; top: 0; left: 0; width: 2px; height: 100%; background: #fff; pointer-events: none;"></div>
+                </div>
+                <audio id="sndPreviewPlayer" controls preload="none" style="width: 100%; display: block;">
+                    Your browser does not support the audio tag.
+                </audio>
             </div>
         </div>
     </div>

@@ -1,10 +1,12 @@
 """Unified WebSocket hub for real-time client communication."""
 
-import json
 from datetime import datetime, timezone
 from typing import Dict, Set
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+from routers.videopart import handle_videopart_uploaded
+from routers.sound import handle_sound_uploaded
 
 router = APIRouter(tags=["websocket"])
 
@@ -91,6 +93,36 @@ async def websocket_hub(websocket: WebSocket, client_type: str = "frontend"):
                 data["sender"] = client_type
 
             print(f"[WS] {client_type} -> {data.get('command')}: {data.get('data', {})}")
+
+            # Handle backend-targeted commands
+            command = data.get("command")
+            target = data.get("target")
+
+            if command == "videopart:uploaded" and target == "backend":
+                # Process videopart upload and send response
+                result = await handle_videopart_uploaded(data.get("data", {}))
+                response = {
+                    "command": "videopart:processed",
+                    "sender": "backend",
+                    "target": "frontend",
+                    "data": result,
+                    "timestamp": get_timestamp()
+                }
+                await route_message(response)
+                continue  # Don't route original message
+
+            if command == "sound:uploaded" and target == "backend":
+                # Process sound upload and send response
+                result = await handle_sound_uploaded(data.get("data", {}))
+                response = {
+                    "command": "sound:processed",
+                    "sender": "backend",
+                    "target": "frontend",
+                    "data": result,
+                    "timestamp": get_timestamp()
+                }
+                await route_message(response)
+                continue  # Don't route original message
 
             # Route message to recipients
             await route_message(data, sender_ws=websocket)

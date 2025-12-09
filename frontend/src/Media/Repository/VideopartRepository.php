@@ -16,6 +16,7 @@ class VideopartRepository extends Model
         "description",
         "file_path",
         "thumbnail",
+        "duration",
     ];
 
     protected $casts = [
@@ -115,6 +116,7 @@ class VideopartRepository extends Model
         $model->description = $entity->getDescription();
         $model->file_path = $entity->getFilePath();
         $model->thumbnail = $entity->getThumbnail();
+        $model->duration = $entity->getDuration();
         $model->save();
 
         return $this->modelToEntity($model);
@@ -149,6 +151,7 @@ class VideopartRepository extends Model
         $entity->setDescription($model->description);
         $entity->setFilePath($model->file_path);
         $entity->setThumbnail($model->thumbnail);
+        $entity->setDuration($model->duration);
         $entity->setCreatedAt($model->created_at);
         $entity->setUpdatedAt($model->updated_at);
 
