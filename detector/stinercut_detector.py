@@ -12,16 +12,407 @@ import json
 import logging
 import os
 import pwd
+import re
+import select
 import signal
 import subprocess
 import sys
 import threading
 import time
+import uuid
+from dataclasses import dataclass, field
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
+from typing import Optional
 
 import pyudev
 import websocket
+
+
+# Video extensions for GOPRO copy (case-insensitive)
+GOPRO_VIDEO_EXTENSIONS = {'.mp4', '.lrv'}
+
+# Regex pattern for GOPRO folders (100GOPRO, 101GOPRO, etc.)
+GOPRO_FOLDER_PATTERN = re.compile(r'^\d{3}GOPRO$', re.IGNORECASE)
+
+# Regex for parsing rsync progress2 output (supports both US and EU number formats)
+# US: 542,449,068  40%  20.74MB/s
+# EU: 542.449.068  40%  20,74MB/s
+RSYNC_PROGRESS_PATTERN = re.compile(r'^\s*([\d.,]+)\s+(\d+)%\s+([\d.,]+\w+/s)')
+
+# Copy log filename on SD card (tracks which files were already copied)
+COPY_LOG_FILENAME = "_stinercut_copied.txt"
+
+
+@dataclass
+class CopyJob:
+    """Represents a single GOPRO copy operation."""
+    job_id: str
+    device_node: str
+    mount_path: str
+    target_dir: str
+    gopro_info: dict = field(default_factory=dict)  # Original gopro_info from detection
+    files_to_copy: list = field(default_factory=list)  # List of relative paths to copy
+    total_bytes: int = 0
+    video_count: int = 0
+    bytes_copied: int = 0
+    percent: int = 0
+    speed: str = ""
+    last_reported_percent: int = -10  # For 10% interval reporting
+    start_time: float = field(default_factory=time.time)
+    process: Optional[subprocess.Popen] = None
+    error: Optional[str] = None
+    reusing_uuid: bool = False  # True if reusing existing UUID from copy log
+
+
+class GoproCopyManager:
+    """Manages GOPRO file copy operations with progress tracking."""
+
+    def __init__(self, detector: 'StinercutDetector'):
+        self.detector = detector
+        self.active_jobs: dict[str, CopyJob] = {}
+        self.lock = threading.Lock()
+        self.logger = logging.getLogger("gopro-copy")
+        # Get target base from config (host path, not Docker path)
+        self.target_base = detector.config["gopro"].get("target_base", "/videodata/input")
+
+    def start_copy(self, mount_path: str, device_node: str, gopro_info: dict) -> str | None:
+        """
+        Start a copy operation for a GOPRO device.
+
+        Args:
+            mount_path: Path where device is mounted
+            device_node: Device node (e.g., /dev/sdb1)
+            gopro_info: Dict with gopro_folders, total_size, video_count
+
+        Returns:
+            job_id (UUID) for tracking, or None if all files already copied
+        """
+        dcim_path = os.path.join(mount_path, "DCIM")
+
+        # Load existing copy log to check what's already copied
+        copied_files, existing_uuid = self._load_copy_log(dcim_path)
+
+        # Determine which files need to be copied
+        files_to_copy, new_bytes = self._get_files_to_copy(gopro_info, copied_files)
+
+        if not files_to_copy:
+            self.logger.info("All GOPRO files already copied, skipping")
+            # Send skipped signal
+            self.detector._send_ws_message("gopro.copy_skipped", {
+                "device_node": device_node,
+                "mount_path": mount_path,
+                "reason": "all_copied",
+                "existing_uuid": existing_uuid,
+            })
+            return None
+
+        # Determine UUID: reuse existing if target dir exists, otherwise generate new
+        reusing_uuid = False
+        if existing_uuid:
+            existing_target = os.path.join(self.target_base, existing_uuid)
+            if os.path.isdir(existing_target):
+                job_id = existing_uuid
+                target_dir = existing_target
+                reusing_uuid = True
+                self.logger.info(f"Reusing existing UUID: {existing_uuid}")
+            else:
+                job_id = str(uuid.uuid4())
+                target_dir = os.path.join(self.target_base, job_id)
+        else:
+            job_id = str(uuid.uuid4())
+            target_dir = os.path.join(self.target_base, job_id)
+
+        job = CopyJob(
+            job_id=job_id,
+            device_node=device_node,
+            mount_path=mount_path,
+            target_dir=target_dir,
+            gopro_info=gopro_info,
+            files_to_copy=files_to_copy,
+            total_bytes=new_bytes,
+            video_count=len(files_to_copy),
+            reusing_uuid=reusing_uuid,
+        )
+
+        with self.lock:
+            self.active_jobs[job_id] = job
+
+        # Start copy in background thread
+        thread = threading.Thread(
+            target=self._copy_worker,
+            args=(job,),
+            daemon=True,
+        )
+        thread.start()
+
+        return job_id
+
+    def _copy_worker(self, job: CopyJob):
+        """Execute the copy operation with progress tracking using selective file list."""
+        files_list_path = None
+        try:
+            # Create target directory with proper permissions
+            os.makedirs(job.target_dir, mode=0o755, exist_ok=True)
+            os.chmod(job.target_dir, 0o755)
+
+            self.logger.info(
+                f"Starting GOPRO copy: {len(job.files_to_copy)} files "
+                f"({job.total_bytes / (1024**3):.2f} GB) -> {job.target_dir}"
+                f"{' (reusing UUID)' if job.reusing_uuid else ''}"
+            )
+
+            # Send copy_started signal
+            self._send_signal("gopro.copy_started", job)
+
+            # Build rsync command with --files-from for selective copy
+            dcim_path = os.path.join(job.mount_path, "DCIM")
+
+            # Create temp file with list of files to copy (inside target folder)
+            files_list_path = os.path.join(job.target_dir, ".rsync_files.txt")
+            with open(files_list_path, 'w') as f:
+                for rel_path in job.files_to_copy:
+                    f.write(f"{rel_path}\n")
+
+            cmd = [
+                "rsync",
+                "-a",  # Archive mode (preserves timestamps!)
+                "--info=progress2",
+                "--no-inc-recursive",
+                "--whole-file",
+                "--inplace",
+                "--files-from", files_list_path,
+                f"{dcim_path}/",
+                f"{job.target_dir}/",
+            ]
+
+            self.logger.debug(f"rsync command: {' '.join(cmd)}")
+
+            # Start rsync process
+            job.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=False,  # Binary mode for manual line handling
+                bufsize=0,   # Unbuffered
+            )
+
+            # Read progress output (rsync uses \r for progress updates)
+            stall_counter = 0
+            buffer = b""
+            while job.process.poll() is None:
+                # Use select to check if data is available (non-blocking)
+                ready, _, _ = select.select([job.process.stdout], [], [], 1.0)
+                if ready:
+                    chunk = job.process.stdout.read(4096)
+                    if chunk:
+                        stall_counter = 0
+                        buffer += chunk
+                        self.logger.debug(f"rsync raw output: {chunk[:200]!r}")
+
+                        # Process complete lines (split by \r or \n)
+                        while b'\r' in buffer or b'\n' in buffer:
+                            # Find first separator
+                            r_pos = buffer.find(b'\r')
+                            n_pos = buffer.find(b'\n')
+
+                            if r_pos == -1:
+                                sep_pos = n_pos
+                            elif n_pos == -1:
+                                sep_pos = r_pos
+                            else:
+                                sep_pos = min(r_pos, n_pos)
+
+                            line = buffer[:sep_pos].decode('utf-8', errors='replace')
+                            buffer = buffer[sep_pos + 1:]
+
+                            if line.strip():
+                                self.logger.debug(f"rsync line: {line}")
+                                self._parse_and_report_progress(job, line)
+                else:
+                    stall_counter += 1
+                    if stall_counter > 300:  # 5 minutes with no output
+                        self.logger.warning(f"Copy stalled for job {job.job_id}")
+                        job.process.terminate()
+                        job.error = "Copy operation stalled - no progress for 5 minutes"
+                        self._send_signal("gopro.copy_failed", job)
+                        return
+
+            # Check exit code
+            exit_code = job.process.returncode
+            stderr = job.process.stderr.read()
+
+            if exit_code == 0:
+                job.percent = 100
+                duration = time.time() - job.start_time
+                self.logger.info(f"GOPRO copy completed: {job.job_id} in {duration:.1f}s")
+
+                # Fix permissions on copied files (644 for files)
+                self._fix_permissions(job.target_dir)
+
+                # Update copy log on SD card
+                self._append_to_copy_log(dcim_path, job.files_to_copy, job.job_id)
+
+                self._send_signal("gopro.copy_completed", job, duration=duration)
+            else:
+                job.error = stderr.strip() if stderr else f"rsync failed with code {exit_code}"
+                self.logger.error(f"GOPRO copy failed: {job.job_id} - {job.error}")
+                self._send_signal("gopro.copy_failed", job)
+
+        except Exception as e:
+            job.error = str(e)
+            self.logger.error(f"GOPRO copy error: {job.job_id} - {e}", exc_info=True)
+            self._send_signal("gopro.copy_failed", job)
+
+        finally:
+            # Clean up temp files list
+            if files_list_path and os.path.exists(files_list_path):
+                try:
+                    os.remove(files_list_path)
+                except OSError:
+                    pass
+
+            with self.lock:
+                self.active_jobs.pop(job.job_id, None)
+
+    def _parse_and_report_progress(self, job: CopyJob, line: str):
+        """Parse rsync progress line and send update if threshold crossed."""
+        match = RSYNC_PROGRESS_PATTERN.search(line)
+        if not match:
+            return
+
+        # Remove thousand separators (both . and ,) from bytes string
+        bytes_str = match.group(1).replace('.', '').replace(',', '')
+        job.bytes_copied = int(bytes_str)
+        job.percent = int(match.group(2))
+        job.speed = match.group(3)
+
+        # Report at 10% intervals
+        next_threshold = ((job.last_reported_percent // 10) + 1) * 10
+        if job.percent >= next_threshold and job.percent < 100:
+            job.last_reported_percent = (job.percent // 10) * 10
+            self.logger.debug(f"Sending progress: {job.percent}%")
+            self._send_signal("gopro.copy_progress", job)
+
+    def _send_signal(self, command: str, job: CopyJob, **extra):
+        """Send WebSocket signal for copy operation."""
+        data = {
+            "uuid": job.job_id,
+            "device_node": job.device_node,
+            "target_dir": job.target_dir,
+            "percent": job.percent,
+            "bytes_copied": job.bytes_copied,
+            "total_bytes": job.total_bytes,
+            "video_count": job.video_count,
+            "speed": job.speed,
+            "reusing_uuid": job.reusing_uuid,
+        }
+
+        if job.error:
+            data["error"] = job.error
+
+        data.update(extra)
+
+        self.detector._send_ws_message(command, data)
+
+    def _fix_permissions(self, target_dir: str):
+        """Set proper permissions on copied files (644 for files, 755 for dirs)."""
+        try:
+            for root, dirs, files in os.walk(target_dir):
+                for d in dirs:
+                    os.chmod(os.path.join(root, d), 0o755)
+                for f in files:
+                    os.chmod(os.path.join(root, f), 0o644)
+        except OSError as e:
+            self.logger.warning(f"Could not fix permissions: {e}")
+
+    def _load_copy_log(self, dcim_path: str) -> tuple[dict[str, str], str | None]:
+        """
+        Load existing copy log from SD card.
+
+        Args:
+            dcim_path: Path to DCIM folder on SD card
+
+        Returns:
+            Tuple of (copied_files: {relative_path: uuid}, last_uuid: str or None)
+        """
+        log_path = os.path.join(dcim_path, COPY_LOG_FILENAME)
+        copied_files = {}
+        last_uuid = None
+
+        if not os.path.exists(log_path):
+            return copied_files, None
+
+        try:
+            with open(log_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if ' => ' in line:
+                        rel_path, file_uuid = line.split(' => ', 1)
+                        copied_files[rel_path] = file_uuid
+                        last_uuid = file_uuid  # Track last UUID for reuse
+            self.logger.debug(f"Loaded copy log with {len(copied_files)} entries, last UUID: {last_uuid}")
+        except (IOError, OSError) as e:
+            self.logger.warning(f"Could not read copy log {log_path}: {e}")
+
+        return copied_files, last_uuid
+
+    def _get_files_to_copy(self, gopro_info: dict, copied_files: dict) -> tuple[list[str], int]:
+        """
+        Get list of files that haven't been copied yet.
+
+        Args:
+            gopro_info: Dict with gopro_folders list
+            copied_files: Dict of {relative_path: uuid} already copied
+
+        Returns:
+            Tuple of (list of relative paths to copy, total size in bytes)
+        """
+        files_to_copy = []
+        total_size = 0
+
+        for folder_path in gopro_info.get("gopro_folders", []):
+            folder_name = os.path.basename(folder_path)  # e.g., "100GOPRO"
+
+            try:
+                for filename in os.listdir(folder_path):
+                    ext = os.path.splitext(filename)[1].lower()
+                    if ext not in GOPRO_VIDEO_EXTENSIONS:
+                        continue
+
+                    rel_path = f"{folder_name}/{filename}"
+                    if rel_path not in copied_files:
+                        files_to_copy.append(rel_path)
+                        try:
+                            total_size += os.path.getsize(os.path.join(folder_path, filename))
+                        except OSError:
+                            pass
+            except OSError as e:
+                self.logger.warning(f"Error scanning folder {folder_path}: {e}")
+
+        return files_to_copy, total_size
+
+    def _append_to_copy_log(self, dcim_path: str, copied_files: list[str], job_uuid: str):
+        """
+        Append successfully copied files to the log on SD card.
+
+        Args:
+            dcim_path: Path to DCIM folder on SD card
+            copied_files: List of relative paths that were copied
+            job_uuid: UUID of the target folder
+        """
+        log_path = os.path.join(dcim_path, COPY_LOG_FILENAME)
+
+        try:
+            with open(log_path, 'a') as f:
+                for rel_path in copied_files:
+                    f.write(f"{rel_path} => {job_uuid}\n")
+
+            # Set permissions (644)
+            os.chmod(log_path, 0o644)
+            self.logger.info(f"Updated copy log with {len(copied_files)} entries")
+        except (IOError, OSError) as e:
+            self.logger.error(f"Could not write to copy log {log_path}: {e}")
 
 
 class StinercutDetector:
@@ -36,6 +427,7 @@ class StinercutDetector:
         self.pending_events = {}  # device_node -> timestamp for debouncing
         self.ws = None  # WebSocket connection to backend
         self.ws_lock = threading.Lock()  # Thread-safe WebSocket access
+        self.copy_manager = GoproCopyManager(self)  # GOPRO copy manager
 
     def _load_config(self, config_path: str = None) -> configparser.ConfigParser:
         """Load configuration from config.ini."""
@@ -72,6 +464,12 @@ class StinercutDetector:
             config["logging"] = {}
         config["logging"].setdefault("file", "")
         config["logging"].setdefault("level", "INFO")
+
+        if "gopro" not in config:
+            config["gopro"] = {}
+        config["gopro"].setdefault("auto_copy", "true")
+        config["gopro"].setdefault("target_base", "/videodata/input")
+        config["gopro"].setdefault("progress_interval", "10")
 
         return config
 
@@ -166,6 +564,61 @@ class StinercutDetector:
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             self.logger.warning(f"Failed to get filesystem type for {device_node}: {e}")
         return None
+
+    def is_gopro_device(self, mount_path: str) -> tuple[bool, dict]:
+        """
+        Detect if mounted device is a GOPRO by checking for DCIM/xxxGOPRO folder pattern.
+
+        Args:
+            mount_path: Path where device is mounted
+
+        Returns:
+            Tuple of (is_gopro: bool, info: dict with gopro_folders, total_size, video_count)
+        """
+        result = {
+            "gopro_folders": [],
+            "total_size": 0,
+            "video_count": 0,
+        }
+
+        try:
+            dcim_path = os.path.join(mount_path, "DCIM")
+            if not os.path.isdir(dcim_path):
+                return False, result
+
+            # Scan for xxxGOPRO folders
+            for item in os.listdir(dcim_path):
+                item_path = os.path.join(dcim_path, item)
+                if os.path.isdir(item_path) and GOPRO_FOLDER_PATTERN.match(item):
+                    result["gopro_folders"].append(item_path)
+
+                    # Count video files and calculate total size
+                    for f in os.listdir(item_path):
+                        ext = os.path.splitext(f)[1].lower()
+                        if ext in GOPRO_VIDEO_EXTENSIONS:
+                            file_path = os.path.join(item_path, f)
+                            try:
+                                result["total_size"] += os.path.getsize(file_path)
+                                result["video_count"] += 1
+                            except OSError:
+                                pass
+
+            is_gopro = len(result["gopro_folders"]) > 0 and result["video_count"] > 0
+            if is_gopro:
+                self.logger.info(
+                    f"GOPRO detected: {len(result['gopro_folders'])} folders, "
+                    f"{result['video_count']} videos, "
+                    f"{result['total_size'] / (1024**3):.2f} GB"
+                )
+
+            return is_gopro, result
+
+        except PermissionError as e:
+            self.logger.warning(f"Permission denied scanning {mount_path}: {e}")
+            return False, result
+        except OSError as e:
+            self.logger.warning(f"Error scanning {mount_path}: {e}")
+            return False, result
 
     def mount_device(self, device_node: str) -> str | None:
         """
@@ -570,6 +1023,14 @@ class StinercutDetector:
 
             if mount_path:
                 self.notify_mount(device_node, mount_path)
+
+                # Check for GOPRO device and auto-start copy if enabled
+                if self.config["gopro"].getboolean("auto_copy", True):
+                    is_gopro, gopro_info = self.is_gopro_device(mount_path)
+                    if is_gopro:
+                        self.logger.info(f"GOPRO detected at {mount_path}, starting auto-copy...")
+                        job_id = self.copy_manager.start_copy(mount_path, device_node, gopro_info)
+                        self.logger.info(f"GOPRO copy started with job ID: {job_id}")
             else:
                 self.logger.warning(f"Device {device_node} has no mount point, skipping")
 
