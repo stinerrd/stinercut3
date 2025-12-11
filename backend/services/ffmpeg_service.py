@@ -199,6 +199,126 @@ class FFmpegService:
             )
 
     # =====================
+    # Slow motion operations
+    # =====================
+
+    def get_video_encoding_params(self, video_path: str) -> dict:
+        """
+        Get detailed video encoding parameters for matching during re-encode.
+
+        Returns dict with: codec, width, height, fps, bitrate, profile, level, pix_fmt
+        """
+        try:
+            probe = ffmpeg.probe(video_path)
+            video_stream = next(
+                (s for s in probe['streams'] if s['codec_type'] == 'video'),
+                None
+            )
+
+            if not video_stream:
+                raise ValueError("No video stream found")
+
+            # Parse framerate
+            fps = 30  # default
+            if 'r_frame_rate' in video_stream:
+                rate = video_stream['r_frame_rate']
+                if '/' in rate:
+                    num, den = rate.split('/')
+                    fps = int(num) / int(den) if int(den) != 0 else 30
+                else:
+                    fps = float(rate)
+
+            # Get bitrate (from stream or format)
+            bitrate = video_stream.get('bit_rate')
+            if not bitrate:
+                bitrate = probe['format'].get('bit_rate')
+            bitrate = int(bitrate) if bitrate else 45_000_000  # 45Mbps default
+
+            return {
+                'codec': video_stream.get('codec_name', 'h264'),
+                'width': video_stream.get('width'),
+                'height': video_stream.get('height'),
+                'fps': fps,
+                'bitrate': bitrate,
+                'profile': video_stream.get('profile', 'High'),
+                'level': video_stream.get('level', 42),
+                'pix_fmt': video_stream.get('pix_fmt', 'yuv420p'),
+            }
+        except ffmpeg.Error as e:
+            raise ValueError(
+                f"Failed to get encoding params: {e.stderr.decode() if e.stderr else str(e)}"
+            )
+
+    def convert_to_slowmo(
+        self,
+        input_path: str,
+        output_path: str,
+        speed_factor: float = 0.5
+    ) -> None:
+        """
+        Convert video to slow motion, matching source encoding parameters.
+
+        Args:
+            input_path: Source video path
+            output_path: Destination video path
+            speed_factor: Speed multiplier (0.5 = 2x slower, 0.25 = 4x slower)
+        """
+        try:
+            # Get source encoding parameters
+            params = self.get_video_encoding_params(input_path)
+
+            # Map codec to encoder
+            encoder_map = {
+                'h264': 'libx264',
+                'hevc': 'libx265',
+                'h265': 'libx265',
+            }
+            encoder = encoder_map.get(params['codec'], 'libx264')
+
+            # Convert level (42 -> "4.2")
+            level = params['level']
+            if isinstance(level, int) and level > 10:
+                level = f"{level // 10}.{level % 10}"
+
+            # Calculate PTS multiplier (inverse of speed)
+            pts_multiplier = 1.0 / speed_factor
+
+            # Build output kwargs to match source
+            output_kwargs = {
+                'vcodec': encoder,
+                'video_bitrate': params['bitrate'],
+                'maxrate': params['bitrate'],
+                'bufsize': params['bitrate'] * 2,
+                'r': params['fps'],
+                'pix_fmt': params['pix_fmt'],
+                'an': None,  # no audio
+            }
+
+            # Add profile/level for h264
+            if encoder == 'libx264':
+                profile = params['profile'].lower() if params['profile'] else 'high'
+                # Normalize profile name
+                if profile not in ('baseline', 'main', 'high', 'high10', 'high422', 'high444'):
+                    profile = 'high'
+                output_kwargs['profile:v'] = profile
+                output_kwargs['level'] = level
+
+            stream = (
+                ffmpeg
+                .input(input_path)
+                .filter('setpts', f'{pts_multiplier}*PTS')
+                .output(output_path, **output_kwargs)
+                .overwrite_output()
+            )
+
+            ffmpeg.run(stream, capture_stdout=True, capture_stderr=True)
+            os.chmod(output_path, 0o644)
+        except ffmpeg.Error as e:
+            raise ValueError(
+                f"Failed to convert to slowmo: {e.stderr.decode() if e.stderr else str(e)}"
+            )
+
+    # =====================
     # Audio operations
     # =====================
 

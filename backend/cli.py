@@ -11,6 +11,7 @@ import time
 from database import SessionLocal
 from services.video_analyzer import VideoAnalyzer
 from services.video_splitter import VideoSplitterService
+from services.video_slowmo import VideoSlowmoService
 
 
 def run_detection(
@@ -195,6 +196,73 @@ def run_split(
         return 1
 
 
+def run_slowmo(
+    input_path: str,
+    speed_factor: float = 0.5,
+    output_dir: str = None,
+    verbose: bool = False
+):
+    """
+    Convert video to slow motion.
+
+    Args:
+        input_path: Relative path to video (e.g., "input/abc123/video.mp4")
+        speed_factor: Speed multiplier (0.1 to 1.0, where 0.5 = 2x slower)
+        output_dir: Output directory (optional, default: same as input)
+        verbose: Show detailed progress
+    """
+    print(f"Converting to slow motion: {input_path}")
+    print(f"Speed factor: {speed_factor}x ({1/speed_factor:.1f}x slower)")
+    if output_dir:
+        print(f"Output directory: {output_dir}")
+    print("-" * 50)
+    start_time = time.time()
+
+    async def progress_callback(event_type: str, data: dict):
+        """Print progress updates."""
+        if event_type == "slowmo_started":
+            orig_dur = data.get('original_duration', 0)
+            est_dur = data.get('estimated_output_duration', 0)
+            print(f"Original duration: {orig_dur:.2f}s")
+            print(f"Output duration: {est_dur:.2f}s")
+            print("Encoding (this may take a while)...")
+
+        elif event_type == "slowmo_completed":
+            output = data.get('output', '')
+            size_mb = data.get('size_bytes', 0) / (1024 * 1024)
+            out_dur = data.get('output_duration', 0)
+            print("-" * 50)
+            print(f"Conversion complete!")
+            print(f"  Output: {output}")
+            print(f"  Duration: {out_dur:.2f}s")
+            print(f"  Size: {size_mb:.1f} MB")
+
+        elif event_type == "slowmo_error":
+            print(f"Error: {data.get('error', 'Unknown error')}")
+
+    async def run():
+        service = VideoSlowmoService()
+        return await service.convert_slowmo(
+            input_path, speed_factor, output_dir, progress_callback
+        )
+
+    try:
+        result = asyncio.run(run())
+        elapsed = time.time() - start_time
+
+        if result['success']:
+            print("-" * 50)
+            print(f"Completed in {elapsed:.1f} seconds")
+            return 0
+        else:
+            print(f"Conversion failed: {result.get('error', 'Unknown error')}")
+            return 1
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return 1
+
+
 def list_pending(status: str = None):
     """List import batches with optional status filter."""
     from models import ImportBatch
@@ -306,6 +374,31 @@ def main():
         help="Show detailed progress"
     )
 
+    # slowmo command
+    slowmo_parser = subparsers.add_parser(
+        "slowmo",
+        help="Convert video to slow motion"
+    )
+    slowmo_parser.add_argument(
+        "input_path",
+        help="Relative path to video (e.g., input/abc123/video.mp4)"
+    )
+    slowmo_parser.add_argument(
+        "-s", "--speed",
+        type=float,
+        default=0.5,
+        help="Speed factor (0.1-1.0, default: 0.5 = 2x slower)"
+    )
+    slowmo_parser.add_argument(
+        "-o", "--output-dir",
+        help="Output directory (default: same as input)"
+    )
+    slowmo_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Show detailed progress"
+    )
+
     args = parser.parse_args()
 
     if args.command == "detect":
@@ -323,6 +416,13 @@ def main():
         sys.exit(run_split(
             args.input_path,
             args.timestamps,
+            args.output_dir,
+            args.verbose
+        ))
+    elif args.command == "slowmo":
+        sys.exit(run_slowmo(
+            args.input_path,
+            args.speed,
             args.output_dir,
             args.verbose
         ))

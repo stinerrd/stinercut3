@@ -145,6 +145,68 @@ f6e5d4c3-b2a1-...                   needs_manual    3/3        1     2
 
 ---
 
+### slowmo
+
+Convert a video to slow motion with source-matched encoding parameters.
+
+```bash
+python3 cli.py slowmo <input_path> [options]
+```
+
+**Arguments:**
+- `input_path` - Relative path to video file (e.g., `input/abc123/video.mp4`)
+
+**Options:**
+- `-s, --speed <factor>` - Speed factor 0.1-1.0 (default: 0.5 = 2x slower)
+- `-o, --output-dir <path>` - Output directory (default: same as input)
+- `-v, --verbose` - Show detailed progress
+
+**How it works:**
+1. Analyzes source video encoding parameters (codec, bitrate, profile, level, fps)
+2. Applies slow motion using FFmpeg `setpts` filter
+3. Re-encodes with matched parameters for seamless joining with other clips
+4. Removes audio from output
+
+**Output naming:**
+Files are named `{original}_slowmo_{factor}x.mp4`
+
+**Examples:**
+```bash
+# Convert to 2x slower (0.5x speed)
+python3 cli.py slowmo input/abc123/GH010042.MP4
+
+# Convert to 4x slower (0.25x speed)
+python3 cli.py slowmo input/abc123/GH010042.MP4 -s 0.25
+
+# Custom output directory
+python3 cli.py slowmo input/abc123/GH010042.MP4 -s 0.5 -o output/slowmo
+```
+
+**Sample output:**
+```
+Converting to slow motion: input/abc123/GH010042.MP4
+Speed factor: 0.5x (2.0x slower)
+--------------------------------------------------
+Original duration: 10.00s
+Output duration: 20.00s
+Encoding (this may take a while)...
+--------------------------------------------------
+Conversion complete!
+  Output: input/abc123/GH010042_slowmo_0.5x.MP4
+  Duration: 20.00s
+  Size: 45.2 MB
+--------------------------------------------------
+Completed in 35.2 seconds
+```
+
+**Notes:**
+- Re-encoding is required (slower than split, but necessary for speed change)
+- Output matches source encoding for seamless concat with other video parts
+- Audio is removed from output
+- Processing time depends on video length and resolution
+
+---
+
 ## Exit Codes
 
 - `0` - Success
