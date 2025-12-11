@@ -44,5 +44,6 @@ def init_db():
     Initialize database by creating all tables.
     Call this on application startup.
     """
-    from backend.models import project, video, job, asset  # noqa: F401
+    from models import project, video, job, asset  # noqa: F401
+    from models import import_batch, video_file, video_file_segment  # noqa: F401
     Base.metadata.create_all(bind=engine)

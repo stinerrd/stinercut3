@@ -7,6 +7,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from routers.videopart import handle_videopart_uploaded
 from routers.sound import handle_sound_uploaded
+from routers.video_detection import handle_start_detection, handle_gopro_copy_completed
 
 router = APIRouter(tags=["websocket"])
 
@@ -116,6 +117,32 @@ async def websocket_hub(websocket: WebSocket, client_type: str = "frontend"):
                 result = await handle_sound_uploaded(data.get("data", {}))
                 response = {
                     "command": "sound:processed",
+                    "sender": "backend",
+                    "target": "frontend",
+                    "data": result,
+                    "timestamp": get_timestamp()
+                }
+                await route_message(response)
+                continue  # Don't route original message
+
+            if command == "videofile:start_detection" and target == "backend":
+                # Start video detection analysis
+                result = await handle_start_detection(data.get("data", {}), route_message)
+                response = {
+                    "command": "videofile:detection_started",
+                    "sender": "backend",
+                    "target": "frontend",
+                    "data": result,
+                    "timestamp": get_timestamp()
+                }
+                await route_message(response)
+                continue  # Don't route original message
+
+            if command == "gopro:copy_completed" and target == "backend":
+                # Auto-trigger video analysis after GOPRO copy
+                result = await handle_gopro_copy_completed(data.get("data", {}), route_message)
+                response = {
+                    "command": "videofile:detection_started",
                     "sender": "backend",
                     "target": "frontend",
                     "data": result,
