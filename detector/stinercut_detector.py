@@ -254,6 +254,14 @@ class GoproCopyManager:
                 self._append_to_copy_log(dcim_path, job.files_to_copy, job.job_id)
 
                 self._send_signal("gopro.copy_completed", job, duration=duration)
+
+                # Organize SD card - rename DCIM to UUID (separate from copy success)
+                organize_success, organize_error = self._organize_sd_card(job.mount_path, job.job_id)
+                if organize_success:
+                    self._send_signal("gopro.sd_organized", job)
+                else:
+                    self.logger.warning(f"SD card organization failed: {job.job_id} - {organize_error}")
+                    self._send_signal("gopro.sd_organize_failed", job, error=organize_error)
             else:
                 job.error = stderr.strip() if stderr else f"rsync failed with code {exit_code}"
                 self.logger.error(f"GOPRO copy failed: {job.job_id} - {job.error}")
@@ -325,6 +333,30 @@ class GoproCopyManager:
                     os.chmod(os.path.join(root, f), 0o644)
         except OSError as e:
             self.logger.warning(f"Could not fix permissions: {e}")
+
+    def _organize_sd_card(self, mount_path: str, uuid: str) -> tuple[bool, str | None]:
+        """
+        Rename DCIM folder to UUID on SD card (instant metadata operation).
+
+        Args:
+            mount_path: Root of mounted SD card (e.g., /media/user/SDCARD)
+            uuid: The job UUID used for the import
+
+        Returns:
+            Tuple of (success: bool, error_message: str or None)
+        """
+        dcim_path = os.path.join(mount_path, "DCIM")
+        uuid_path = os.path.join(mount_path, uuid)
+
+        try:
+            os.rename(dcim_path, uuid_path)
+            self.logger.info(f"Organized SD card: renamed DCIM to {uuid}")
+            return True, None
+
+        except PermissionError as e:
+            return False, f"Permission denied: {e}"
+        except OSError as e:
+            return False, f"Failed to rename DCIM: {e}"
 
     def _load_copy_log(self, dcim_path: str) -> tuple[dict[str, str], str | None]:
         """
