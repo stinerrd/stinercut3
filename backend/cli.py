@@ -10,6 +10,7 @@ import time
 
 from database import SessionLocal
 from services.video_analyzer import VideoAnalyzer
+from services.video_splitter import VideoSplitterService
 
 
 def run_detection(
@@ -113,6 +114,87 @@ def run_detection(
         return 1
 
 
+def run_split(
+    input_path: str,
+    timestamps: list,
+    output_dir: str = None,
+    verbose: bool = False
+):
+    """
+    Split video at specified timestamps (snapped to nearest keyframes).
+
+    Args:
+        input_path: Relative path to video (e.g., "input/abc123/video.mp4")
+        timestamps: List of split points in seconds
+        output_dir: Output directory (optional, default: same as input)
+        verbose: Show detailed progress
+    """
+    print(f"Splitting video: {input_path}")
+    print(f"Split points: {timestamps}")
+    if output_dir:
+        print(f"Output directory: {output_dir}")
+    print("-" * 50)
+    start_time = time.time()
+
+    async def progress_callback(event_type: str, data: dict):
+        """Print progress updates."""
+        if event_type == "split_started":
+            print(f"Analyzing keyframes...")
+
+        elif event_type == "keyframes_resolved":
+            requested = data.get('requested', [])
+            snapped = data.get('snapped', [])
+            warnings = data.get('warnings', [])
+            print(f"Requested timestamps: {requested}")
+            print(f"Snapped to keyframes: {snapped}")
+            for warning in warnings:
+                print(f"  Warning: {warning}")
+
+        elif event_type == "splitting_segment":
+            segment = data.get('segment', 0)
+            total = data.get('total', 0)
+            start = data.get('start', 0)
+            end = data.get('end', 0)
+            output = data.get('output', '')
+            if verbose:
+                print(f"  [{segment}/{total}] {output} ({start:.2f}s - {end:.2f}s)")
+
+        elif event_type == "split_completed":
+            outputs = data.get('outputs', [])
+            warnings = data.get('warnings', [])
+            print("-" * 50)
+            print(f"Split complete: {len(outputs)} segments created")
+            for out in outputs:
+                duration = out.get('duration', 0)
+                size_mb = out.get('size_bytes', 0) / (1024 * 1024)
+                print(f"  {out['path']} ({duration:.2f}s, {size_mb:.1f} MB)")
+
+        elif event_type == "split_error":
+            print(f"Error: {data.get('error', 'Unknown error')}")
+
+    async def run():
+        service = VideoSplitterService()
+        return await service.split_video(
+            input_path, timestamps, output_dir, progress_callback
+        )
+
+    try:
+        result = asyncio.run(run())
+        elapsed = time.time() - start_time
+
+        if result['success']:
+            print("-" * 50)
+            print(f"Completed in {elapsed:.1f} seconds")
+            return 0
+        else:
+            print(f"Split failed: {result.get('error', 'Unknown error')}")
+            return 1
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return 1
+
+
 def list_pending(status: str = None):
     """List import batches with optional status filter."""
     from models import ImportBatch
@@ -198,6 +280,32 @@ def main():
         help="Filter by status"
     )
 
+    # split command
+    split_parser = subparsers.add_parser(
+        "split",
+        help="Split video at keyframe timestamps"
+    )
+    split_parser.add_argument(
+        "input_path",
+        help="Relative path to video (e.g., input/abc123/video.mp4)"
+    )
+    split_parser.add_argument(
+        "-t", "--timestamps",
+        type=float,
+        nargs="+",
+        required=True,
+        help="Split points in seconds (e.g., -t 30 60 90)"
+    )
+    split_parser.add_argument(
+        "-o", "--output-dir",
+        help="Output directory (default: same as input)"
+    )
+    split_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Show detailed progress"
+    )
+
     args = parser.parse_args()
 
     if args.command == "detect":
@@ -211,6 +319,13 @@ def main():
         ))
     elif args.command == "list":
         list_pending(args.status)
+    elif args.command == "split":
+        sys.exit(run_split(
+            args.input_path,
+            args.timestamps,
+            args.output_dir,
+            args.verbose
+        ))
     else:
         parser.print_help()
         sys.exit(1)

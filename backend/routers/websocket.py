@@ -8,6 +8,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from routers.videopart import handle_videopart_uploaded
 from routers.sound import handle_sound_uploaded
 from routers.video_detection import handle_start_detection, handle_gopro_copy_completed
+from routers.video_splitter import handle_video_split
 
 router = APIRouter(tags=["websocket"])
 
@@ -143,6 +144,19 @@ async def websocket_hub(websocket: WebSocket, client_type: str = "frontend"):
                 result = await handle_gopro_copy_completed(data.get("data", {}), route_message)
                 response = {
                     "command": "videofile:detection_started",
+                    "sender": "backend",
+                    "target": "frontend",
+                    "data": result,
+                    "timestamp": get_timestamp()
+                }
+                await route_message(response)
+                continue  # Don't route original message
+
+            if command == "video:split" and target == "backend":
+                # Split video at keyframe timestamps
+                result = await handle_video_split(data.get("data", {}), route_message)
+                response = {
+                    "command": "video:split_started",
                     "sender": "backend",
                     "target": "frontend",
                     "data": result,
