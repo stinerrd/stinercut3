@@ -12,6 +12,7 @@ from database import SessionLocal
 from services.video_analyzer import VideoAnalyzer
 from services.video_splitter import VideoSplitterService
 from services.video_slowmo import VideoSlowmoService
+from services.video_transition import VideoTransitionService
 
 
 def run_detection(
@@ -263,6 +264,113 @@ def run_slowmo(
         return 1
 
 
+def run_transition(
+    file1_path: str,
+    file2_path: str,
+    transition_duration: float = 1.0,
+    output_dir: str = None,
+    keep_intermediate: bool = True,
+    transition_only: bool = False,
+    verbose: bool = False
+):
+    """
+    Create fade-out-in transition between two videos.
+
+    Args:
+        file1_path: Relative path to first video
+        file2_path: Relative path to second video
+        transition_duration: Crossfade duration in seconds (default: 1.0)
+        output_dir: Output directory (optional, default: same as file1)
+        keep_intermediate: Keep intermediate segment files (default: True)
+        transition_only: Only create transition segment, skip joining (default: False)
+        verbose: Show detailed progress
+    """
+    print(f"Creating transition between:")
+    print(f"  File 1: {file1_path}")
+    print(f"  File 2: {file2_path}")
+    print(f"Transition duration: {transition_duration}s")
+    if transition_only:
+        print("Mode: transition only (no final join)")
+    if output_dir:
+        print(f"Output directory: {output_dir}")
+    if not keep_intermediate:
+        print("Intermediate files will be deleted")
+    print("-" * 50)
+    start_time = time.time()
+
+    async def progress_callback(event_type: str, data: dict):
+        """Print progress updates."""
+        if event_type == "transition_started":
+            print(f"Starting transition process...")
+
+        elif event_type == "extracting_part1":
+            start = data.get('start', 0)
+            end = data.get('end', 0)
+            if verbose:
+                print(f"  Extracting file1 part: {start:.2f}s - {end:.2f}s")
+
+        elif event_type == "extracting_transition_clips":
+            clip1 = data.get('clip1_range', [])
+            clip2 = data.get('clip2_range', [])
+            if verbose:
+                print(f"  Extracting transition clips:")
+                print(f"    File1: {clip1[0]:.2f}s - {clip1[1]:.2f}s")
+                print(f"    File2: {clip2[0]:.2f}s - {clip2[1]:.2f}s")
+
+        elif event_type == "extracting_part2":
+            start = data.get('start', 0)
+            end = data.get('end', 0)
+            if verbose:
+                print(f"  Extracting file2 part: {start:.2f}s - {end:.2f}s")
+
+        elif event_type == "creating_crossfade":
+            print(f"  Creating crossfade effect ({data.get('fade_duration')}s)...")
+
+        elif event_type == "concatenating":
+            print(f"  Concatenating {data.get('segments')} segments (stream copy)...")
+
+        elif event_type == "transition_completed":
+            output = data.get('output', '')
+            size_mb = data.get('size_bytes', 0) / (1024 * 1024)
+            out_dur = data.get('output_duration', 0)
+            intermediate = data.get('intermediate_files', [])
+            print("-" * 50)
+            print(f"Transition complete!")
+            print(f"  Output: {output}")
+            print(f"  Duration: {out_dur:.2f}s")
+            print(f"  Size: {size_mb:.1f} MB")
+            if intermediate and verbose:
+                print(f"  Intermediate files:")
+                for f in intermediate:
+                    print(f"    - {f}")
+
+        elif event_type == "transition_error":
+            print(f"Error: {data.get('error', 'Unknown error')}")
+
+    async def run():
+        service = VideoTransitionService()
+        return await service.create_transition(
+            file1_path, file2_path, output_dir,
+            transition_duration, keep_intermediate, transition_only, progress_callback
+        )
+
+    try:
+        result = asyncio.run(run())
+        elapsed = time.time() - start_time
+
+        if result['success']:
+            print("-" * 50)
+            print(f"Completed in {elapsed:.1f} seconds")
+            return 0
+        else:
+            print(f"Transition failed: {result.get('error', 'Unknown error')}")
+            return 1
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return 1
+
+
 def list_pending(status: str = None):
     """List import batches with optional status filter."""
     from models import ImportBatch
@@ -399,6 +507,45 @@ def main():
         help="Show detailed progress"
     )
 
+    # transition command
+    transition_parser = subparsers.add_parser(
+        "transition",
+        help="Create fade transition between two videos"
+    )
+    transition_parser.add_argument(
+        "file1_path",
+        help="Relative path to first video"
+    )
+    transition_parser.add_argument(
+        "file2_path",
+        help="Relative path to second video"
+    )
+    transition_parser.add_argument(
+        "-t", "--transition-duration",
+        type=float,
+        default=1.0,
+        help="Crossfade duration in seconds (default: 1.0)"
+    )
+    transition_parser.add_argument(
+        "-o", "--output-dir",
+        help="Output directory (default: same as file1)"
+    )
+    transition_parser.add_argument(
+        "--no-intermediate",
+        action="store_true",
+        help="Delete intermediate files after completion"
+    )
+    transition_parser.add_argument(
+        "--transition-only",
+        action="store_true",
+        help="Only create transition segment, skip joining to final file"
+    )
+    transition_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Show detailed progress"
+    )
+
     args = parser.parse_args()
 
     if args.command == "detect":
@@ -424,6 +571,16 @@ def main():
             args.input_path,
             args.speed,
             args.output_dir,
+            args.verbose
+        ))
+    elif args.command == "transition":
+        sys.exit(run_transition(
+            args.file1_path,
+            args.file2_path,
+            args.transition_duration,
+            args.output_dir,
+            not args.no_intermediate,
+            args.transition_only,
             args.verbose
         ))
     else:

@@ -319,6 +319,189 @@ class FFmpegService:
             )
 
     # =====================
+    # Transition operations
+    # =====================
+
+    def get_audio_info(self, video_path: str) -> dict:
+        """
+        Get audio stream information from a video file.
+
+        Returns dict with: codec, sample_rate, channels, bitrate
+        Returns None values if no audio stream exists.
+        """
+        try:
+            probe = ffmpeg.probe(video_path)
+            audio_stream = next(
+                (s for s in probe['streams'] if s['codec_type'] == 'audio'),
+                None
+            )
+
+            if not audio_stream:
+                return {
+                    'codec': None,
+                    'sample_rate': None,
+                    'channels': None,
+                    'bitrate': None,
+                }
+
+            return {
+                'codec': audio_stream.get('codec_name'),
+                'sample_rate': int(audio_stream.get('sample_rate', 48000)),
+                'channels': audio_stream.get('channels', 2),
+                'bitrate': int(audio_stream.get('bit_rate', 128000)) if audio_stream.get('bit_rate') else 128000,
+            }
+        except ffmpeg.Error as e:
+            raise ValueError(
+                f"Failed to get audio info: {e.stderr.decode() if e.stderr else str(e)}"
+            )
+
+    def create_xfade_transition(
+        self,
+        clip1_path: str,
+        clip2_path: str,
+        output_path: str,
+        fade_duration: float,
+        video_params: dict,
+        audio_params: dict = None,
+        transition_type: str = "fade"
+    ) -> None:
+        """
+        Create crossfade transition between two video clips.
+
+        The output is encoded to match the source video parameters for seamless
+        concatenation with stream copy.
+
+        Args:
+            clip1_path: First clip (fade out)
+            clip2_path: Second clip (fade in)
+            output_path: Output video path
+            fade_duration: Duration of crossfade in seconds
+            video_params: Video encoding parameters (from get_video_encoding_params)
+            audio_params: Audio parameters (from get_audio_info), optional
+            transition_type: xfade transition type (fade, wipeleft, etc.)
+        """
+        try:
+            # Get clip1 duration for xfade offset calculation
+            clip1_duration = self.get_duration(clip1_path)
+
+            # xfade offset = when transition starts (relative to clip1)
+            # For equal-length clips where we want full crossfade:
+            # offset = clip1_duration - fade_duration
+            offset = clip1_duration - fade_duration
+
+            # Input streams
+            in1 = ffmpeg.input(clip1_path)
+            in2 = ffmpeg.input(clip2_path)
+
+            # Apply xfade filter to video streams
+            video = ffmpeg.filter(
+                [in1.video, in2.video],
+                'xfade',
+                transition=transition_type,
+                duration=fade_duration,
+                offset=offset
+            )
+
+            # Map codec to encoder
+            encoder_map = {
+                'h264': 'libx264',
+                'hevc': 'libx265',
+                'h265': 'libx265',
+            }
+            encoder = encoder_map.get(video_params['codec'], 'libx264')
+
+            # Convert level (42 -> "4.2")
+            level = video_params.get('level', 42)
+            if isinstance(level, int) and level > 10:
+                level = f"{level // 10}.{level % 10}"
+
+            # Build video output kwargs
+            output_kwargs = {
+                'vcodec': encoder,
+                'video_bitrate': video_params['bitrate'],
+                'maxrate': video_params['bitrate'],
+                'bufsize': video_params['bitrate'] * 2,
+                'r': video_params['fps'],
+                'pix_fmt': video_params.get('pix_fmt', 'yuv420p'),
+            }
+
+            # Add profile/level for h264
+            if encoder == 'libx264':
+                profile = video_params.get('profile', 'High')
+                if profile:
+                    profile = profile.lower()
+                    if profile not in ('baseline', 'main', 'high', 'high10', 'high422', 'high444'):
+                        profile = 'high'
+                    output_kwargs['profile:v'] = profile
+                output_kwargs['level'] = level
+
+            # Handle audio if present
+            if audio_params and audio_params.get('codec'):
+                # Apply acrossfade filter to audio streams
+                audio = ffmpeg.filter(
+                    [in1.audio, in2.audio],
+                    'acrossfade',
+                    d=fade_duration,
+                    c1='tri',
+                    c2='tri'
+                )
+                output_kwargs['acodec'] = 'aac'
+                output_kwargs['audio_bitrate'] = audio_params.get('bitrate', 128000)
+                output_kwargs['ar'] = audio_params.get('sample_rate', 48000)
+
+                stream = ffmpeg.output(video, audio, output_path, **output_kwargs)
+            else:
+                # No audio
+                output_kwargs['an'] = None
+                stream = ffmpeg.output(video, output_path, **output_kwargs)
+
+            stream = ffmpeg.overwrite_output(stream)
+            ffmpeg.run(stream, capture_stdout=True, capture_stderr=True)
+            os.chmod(output_path, 0o644)
+        except ffmpeg.Error as e:
+            raise ValueError(
+                f"Failed to create xfade transition: {e.stderr.decode() if e.stderr else str(e)}"
+            )
+
+    def concatenate_videos(
+        self,
+        video_paths: list,
+        output_path: str
+    ) -> None:
+        """
+        Concatenate multiple videos using concat demuxer with stream copy (lossless).
+
+        All videos must have compatible codecs for stream copy to work.
+
+        Args:
+            video_paths: List of video file paths (in order)
+            output_path: Output video path
+        """
+        import tempfile
+
+        try:
+            # Create concat file list
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+                for path in video_paths:
+                    # Escape single quotes in path
+                    escaped_path = path.replace("'", "'\\''")
+                    f.write(f"file '{escaped_path}'\n")
+                concat_file = f.name
+
+            try:
+                stream = ffmpeg.input(concat_file, format='concat', safe=0)
+                stream = ffmpeg.output(stream, output_path, c='copy')
+                stream = ffmpeg.overwrite_output(stream)
+                ffmpeg.run(stream, capture_stdout=True, capture_stderr=True)
+                os.chmod(output_path, 0o644)
+            finally:
+                os.unlink(concat_file)
+        except ffmpeg.Error as e:
+            raise ValueError(
+                f"Failed to concatenate videos: {e.stderr.decode() if e.stderr else str(e)}"
+            )
+
+    # =====================
     # Audio operations
     # =====================
 

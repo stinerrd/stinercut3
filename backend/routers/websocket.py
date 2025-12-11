@@ -10,6 +10,7 @@ from routers.sound import handle_sound_uploaded
 from routers.video_detection import handle_start_detection, handle_gopro_copy_completed
 from routers.video_splitter import handle_video_split
 from routers.video_slowmo import handle_video_slowmo
+from routers.video_transition import handle_video_transition
 
 router = APIRouter(tags=["websocket"])
 
@@ -171,6 +172,19 @@ async def websocket_hub(websocket: WebSocket, client_type: str = "frontend"):
                 result = await handle_video_slowmo(data.get("data", {}), route_message)
                 response = {
                     "command": "video:slowmo_started",
+                    "sender": "backend",
+                    "target": "frontend",
+                    "data": result,
+                    "timestamp": get_timestamp()
+                }
+                await route_message(response)
+                continue  # Don't route original message
+
+            if command == "video:transition" and target == "backend":
+                # Create fade transition between two videos
+                result = await handle_video_transition(data.get("data", {}), route_message)
+                response = {
+                    "command": "video:transition_started",
                     "sender": "backend",
                     "target": "frontend",
                     "data": result,
