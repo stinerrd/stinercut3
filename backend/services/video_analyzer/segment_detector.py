@@ -219,15 +219,16 @@ class SegmentDetector:
         return merged
 
     def _refine_ground_classifications(self, segments: List[VideoSegment]) -> List[VideoSegment]:
-        """Refine 'ground' to 'ground_before' or 'ground_after' based on freefall position."""
-        # Find freefall segments
-        freefall_found = False
+        """Refine 'ground' to 'ground_before' or 'ground_after' based on jump sequence."""
+        # Ground after freefall OR canopy is ground_after
+        # (canopy always comes after freefall in skydiving)
+        jump_occurred = False
 
         for seg in segments:
-            if seg.classification == 'freefall':
-                freefall_found = True
+            if seg.classification in ('freefall', 'canopy'):
+                jump_occurred = True
             elif seg.classification == 'ground':
-                if freefall_found:
+                if jump_occurred:
                     seg.classification = 'ground_after'
                 else:
                     seg.classification = 'ground_before'

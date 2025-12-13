@@ -13,6 +13,7 @@ from services.video_analyzer import VideoAnalyzer
 from services.video_splitter import VideoSplitterService
 from services.video_slowmo import VideoSlowmoService
 from services.video_transition import VideoTransitionService
+from services.animated_pax_service import AnimatedPaxService
 
 
 def run_detection(
@@ -371,6 +372,115 @@ def run_transition(
         return 1
 
 
+def run_animated_pax_intro(
+    name: str,
+    template_id: int,
+    output: str,
+    duration: float = None,
+    width: int = 1920,
+    height: int = 1080,
+    fps: int = 30,
+    codec: str = "libx264",
+    verbose: bool = False
+):
+    """
+    Create animated PAX screen intro video.
+
+    Uses FFmpeg overlay filters for high-performance animation.
+    No audio - video only output.
+
+    Args:
+        name: Passenger name to display
+        template_id: ID of splashscreen with embedded animation config
+        output: Output directory path
+        duration: Override template duration (optional)
+        width: Video width (default: 1920)
+        height: Video height (default: 1080)
+        fps: Frame rate (default: 30)
+        codec: Video codec (default: libx264)
+        verbose: Show detailed progress
+    """
+    print(f"Creating animated PAX screen intro for: {name}")
+    print(f"Template ID: {template_id}")
+    print(f"Output: {output}")
+    if duration:
+        print(f"Duration override: {duration}s")
+    print(f"Resolution: {width}x{height} @ {fps}fps")
+    print("-" * 50)
+    start_time = time.time()
+
+    async def progress_callback(event_type: str, data: dict):
+        """Print progress updates."""
+        if event_type == "animated_pax_intro_started":
+            print(f"Starting animated PAX intro creation...")
+
+        elif event_type == "parsed_config":
+            print(f"  Template: {data.get('template_name', 'unknown')}")
+            print(f"  Animation: {data.get('animation_name', 'unknown')}")
+            print(f"  Duration: {data.get('duration', 0)}s")
+            print(f"  Layers: {data.get('layer_count', 0)}")
+
+        elif event_type == "rendering_layer":
+            layer_id = data.get('layer_id', '')
+            progress = data.get('progress', 0)
+            if verbose:
+                print(f"  Rendering layer: {layer_id} ({progress*100:.0f}%)")
+
+        elif event_type == "building_filter":
+            layer_count = data.get('layer_count', 0)
+            print(f"  Building FFmpeg filter for {layer_count} layers...")
+
+        elif event_type == "encoding_video":
+            print(f"  Encoding video...")
+
+        elif event_type == "animated_pax_intro_completed":
+            output_file = data.get('output_file', '')
+            out_dur = data.get('duration', 0)
+            print("-" * 50)
+            print(f"Animated PAX intro complete!")
+            print(f"  Output: {output_file}")
+            print(f"  Duration: {out_dur}s")
+
+        elif event_type == "animated_pax_intro_error":
+            print(f"Error: {data.get('error', 'Unknown error')}")
+
+    async def run():
+        db = SessionLocal()
+        try:
+            service = AnimatedPaxService(db)
+            return await service.create_animated_intro(
+                template_id=template_id,
+                pax_name=name,
+                output_path=output,
+                duration=duration,
+                video_dimensions={
+                    'width': width,
+                    'height': height,
+                    'fps': fps,
+                    'codec': codec
+                },
+                progress_callback=progress_callback
+            )
+        finally:
+            db.close()
+
+    try:
+        result = asyncio.run(run())
+        elapsed = time.time() - start_time
+
+        if result['success']:
+            print("-" * 50)
+            print(f"Completed in {elapsed:.1f} seconds")
+            return 0
+        else:
+            print(f"Animated PAX intro failed: {result.get('error', 'Unknown error')}")
+            return 1
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return 1
+
+
 def list_pending(status: str = None):
     """List import batches with optional status filter."""
     from models import ImportBatch
@@ -397,6 +507,52 @@ def list_pending(status: str = None):
                   f"{batch.detected_qr_count or 0:<5} "
                   f"{batch.detected_freefall_count or 0:<6}")
 
+    finally:
+        db.close()
+
+
+def clear_import(confirm: bool = False):
+    """Clear all import-related database tables."""
+    from models.video_file import VideoFile
+    from models.video_file_segment import VideoFileSegment
+    from models.import_batch import ImportBatch
+
+    db = SessionLocal()
+    try:
+        # Count records before deletion
+        segment_count = db.query(VideoFileSegment).count()
+        file_count = db.query(VideoFile).count()
+        batch_count = db.query(ImportBatch).count()
+
+        print("Import-related tables:")
+        print(f"  video_file_segment: {segment_count} records")
+        print(f"  video_file: {file_count} records")
+        print(f"  import_batch: {batch_count} records")
+        print("-" * 50)
+
+        if not confirm:
+            print("Use --confirm to actually delete the records")
+            return 0
+
+        # Delete in order (segments first due to FK constraints)
+        deleted_segments = db.query(VideoFileSegment).delete()
+        deleted_files = db.query(VideoFile).delete()
+        deleted_batches = db.query(ImportBatch).delete()
+
+        db.commit()
+
+        print("Deleted:")
+        print(f"  video_file_segment: {deleted_segments} records")
+        print(f"  video_file: {deleted_files} records")
+        print(f"  import_batch: {deleted_batches} records")
+        print("-" * 50)
+        print("Import tables cleared successfully")
+        return 0
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error: {e}")
+        return 1
     finally:
         db.close()
 
@@ -454,6 +610,17 @@ def main():
         "--status",
         choices=["pending", "analyzing", "resolved", "needs_manual", "error"],
         help="Filter by status"
+    )
+
+    # clear-import command
+    clear_parser = subparsers.add_parser(
+        "clear-import",
+        help="Clear import-related DB tables (video_file, video_file_segment, import_batch)"
+    )
+    clear_parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Actually delete the records (without this flag, only shows counts)"
     )
 
     # split command
@@ -546,6 +713,61 @@ def main():
         help="Show detailed progress"
     )
 
+    # animated-pax-intro command
+    animated_pax_parser = subparsers.add_parser(
+        "animated-pax-intro",
+        help="Create animated PAX screen intro video (no audio)"
+    )
+    animated_pax_parser.add_argument(
+        "--name",
+        required=True,
+        help="Passenger name to display"
+    )
+    animated_pax_parser.add_argument(
+        "--template-id",
+        type=int,
+        required=True,
+        help="ID of splashscreen with embedded animation config"
+    )
+    animated_pax_parser.add_argument(
+        "--output",
+        required=True,
+        help="Output directory path"
+    )
+    animated_pax_parser.add_argument(
+        "--duration",
+        type=float,
+        help="Override template duration in seconds (optional)"
+    )
+    animated_pax_parser.add_argument(
+        "--width",
+        type=int,
+        default=1920,
+        help="Video width (default: 1920)"
+    )
+    animated_pax_parser.add_argument(
+        "--height",
+        type=int,
+        default=1080,
+        help="Video height (default: 1080)"
+    )
+    animated_pax_parser.add_argument(
+        "--fps",
+        type=int,
+        default=30,
+        help="Frame rate (default: 30)"
+    )
+    animated_pax_parser.add_argument(
+        "--codec",
+        default="libx264",
+        help="Video codec (default: libx264)"
+    )
+    animated_pax_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Show detailed progress"
+    )
+
     args = parser.parse_args()
 
     if args.command == "detect":
@@ -559,6 +781,8 @@ def main():
         ))
     elif args.command == "list":
         list_pending(args.status)
+    elif args.command == "clear-import":
+        sys.exit(clear_import(args.confirm))
     elif args.command == "split":
         sys.exit(run_split(
             args.input_path,
@@ -581,6 +805,18 @@ def main():
             args.output_dir,
             not args.no_intermediate,
             args.transition_only,
+            args.verbose
+        ))
+    elif args.command == "animated-pax-intro":
+        sys.exit(run_animated_pax_intro(
+            args.name,
+            args.template_id,
+            args.output,
+            args.duration,
+            args.width,
+            args.height,
+            args.fps,
+            args.codec,
             args.verbose
         ))
     else:

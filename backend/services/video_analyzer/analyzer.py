@@ -57,7 +57,7 @@ class VideoAnalyzer:
         self.ffmpeg = FFmpegService()
         self.classifier = get_classifier()
         self.segment_detector = SegmentDetector()
-        self.jump_resolver = JumpResolver(os.path.join(VIDEODATA_PATH, "input"))
+        self.jump_resolver = JumpResolver(os.path.join(VIDEODATA_PATH, "input"), db)
         self._progress_lock = threading.Lock()
 
     async def analyze_folder(
@@ -130,10 +130,12 @@ class VideoAnalyzer:
 
         # Phase 4: File Organization (if resolved)
         if resolution.status == 'resolved':
-            success = self.jump_resolver.execute_resolution(resolution, folder_uuid)
-            if success:
+            resolved_folder_name = self.jump_resolver.execute_resolution(resolution, folder_uuid)
+            if resolved_folder_name:
                 batch.status = 'resolved'
                 batch.resolution_type = resolution.resolution_type
+                # Store resolved folder name for organize signal
+                batch.resolved_folder_name = resolved_folder_name
                 # Update file records with new paths
                 for record in file_records:
                     self.db.add(record)

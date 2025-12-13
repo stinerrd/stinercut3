@@ -307,6 +307,7 @@ class GoproCopyManager:
         data = {
             "uuid": job.job_id,
             "device_node": job.device_node,
+            "mount_path": job.mount_path,
             "target_dir": job.target_dir,
             "percent": job.percent,
             "bytes_copied": job.bytes_copied,
@@ -537,8 +538,14 @@ class StinercutDetector:
                         parts = line.split()
                         if len(parts) >= 2 and parts[0] == device_node:
                             mount_path = parts[1]
-                            # Decode escaped characters (e.g., \040 for space)
-                            mount_path = mount_path.encode().decode("unicode_escape")
+                            # Decode octal-escaped characters from /proc/mounts (e.g., \040 for space)
+                            # Note: /proc/mounts uses octal escapes like \040, not unicode escapes
+                            import re
+                            mount_path = re.sub(
+                                r'\\([0-7]{3})',
+                                lambda m: chr(int(m.group(1), 8)),
+                                mount_path
+                            )
                             self.logger.debug(f"Found mount point for {device_node}: {mount_path}")
                             return mount_path
             except IOError as e:
@@ -773,7 +780,7 @@ class StinercutDetector:
 
         return True
 
-    def _send_ws_message(self, command: str, data: dict, target: str = "frontend"):
+    def _send_ws_message(self, command: str, data: dict, target: str = "all"):
         """Send a message via WebSocket to backend hub."""
         with self.ws_lock:
             if self.ws is None:
@@ -816,6 +823,130 @@ class StinercutDetector:
             "monitoring_enabled": self.monitoring_enabled,
             "pending_events": len(self.pending_events),
         })
+
+    def rename_sd_folder(self, mount_path: str, old_folder: str, new_folder: str):
+        """
+        Rename folder on SD card (from IMPORT_UUID to CLIENT_NAME_UUID).
+
+        Args:
+            mount_path: SD card mount path (e.g., /media/stiner/06D8-6152)
+            old_folder: Current folder name (IMPORT_UUID)
+            new_folder: New folder name (CLIENT_NAME_UUID)
+        """
+        old_path = os.path.join(mount_path, old_folder)
+        new_path = os.path.join(mount_path, new_folder)
+
+        if not os.path.exists(old_path):
+            self.logger.warning(f"SD folder not found: {old_path}")
+            self._send_ws_message("gopro.sd_rename_failed", {
+                "mount_path": mount_path,
+                "old_folder": old_folder,
+                "new_folder": new_folder,
+                "error": f"Folder not found: {old_folder}"
+            })
+            return
+
+        if os.path.exists(new_path):
+            self.logger.warning(f"Target folder already exists: {new_path}")
+            self._send_ws_message("gopro.sd_rename_failed", {
+                "mount_path": mount_path,
+                "old_folder": old_folder,
+                "new_folder": new_folder,
+                "error": f"Target folder already exists: {new_folder}"
+            })
+            return
+
+        try:
+            os.rename(old_path, new_path)
+            self.logger.info(f"Renamed SD folder: {old_folder} -> {new_folder}")
+            self._send_ws_message("gopro.sd_renamed", {
+                "mount_path": mount_path,
+                "old_folder": old_folder,
+                "new_folder": new_folder,
+            })
+
+            # Safely unmount SD card after successful rename
+            self._safe_unmount(mount_path)
+
+        except (PermissionError, OSError) as e:
+            self.logger.error(f"Failed to rename SD folder: {e}")
+            self._send_ws_message("gopro.sd_rename_failed", {
+                "mount_path": mount_path,
+                "old_folder": old_folder,
+                "new_folder": new_folder,
+                "error": str(e)
+            })
+
+    def _safe_unmount(self, mount_path: str):
+        """Safely unmount SD card using udisksctl."""
+        import subprocess
+
+        try:
+            # Sync filesystem first
+            subprocess.run(["sync"], check=True, timeout=30)
+
+            # Use udisksctl to safely unmount (handles all the cleanup)
+            result = subprocess.run(
+                ["udisksctl", "unmount", "-b", self._get_block_device(mount_path)],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode == 0:
+                self.logger.info(f"SD card safely unmounted: {mount_path}")
+                self._send_ws_message("gopro.sd_unmounted", {
+                    "mount_path": mount_path,
+                })
+            elif "NotMounted" in result.stderr:
+                # Already unmounted - treat as success
+                self.logger.info(f"SD card already unmounted: {mount_path}")
+                self._send_ws_message("gopro.sd_unmounted", {
+                    "mount_path": mount_path,
+                })
+            else:
+                self.logger.warning(f"Failed to unmount SD card: {result.stderr}")
+                self._send_ws_message("gopro.sd_unmount_failed", {
+                    "mount_path": mount_path,
+                    "error": result.stderr.strip()
+                })
+
+        except subprocess.TimeoutExpired:
+            self.logger.error(f"Unmount timed out for {mount_path}")
+            self._send_ws_message("gopro.sd_unmount_failed", {
+                "mount_path": mount_path,
+                "error": "Unmount timed out"
+            })
+        except Exception as e:
+            self.logger.error(f"Error unmounting SD card: {e}")
+            self._send_ws_message("gopro.sd_unmount_failed", {
+                "mount_path": mount_path,
+                "error": str(e)
+            })
+
+    def _get_block_device(self, mount_path: str) -> str:
+        """Get block device from mount path using /proc/mounts."""
+        try:
+            with open("/proc/mounts", "r") as f:
+                for line in f:
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1] == mount_path:
+                        return parts[0]
+        except Exception as e:
+            self.logger.warning(f"Error reading /proc/mounts: {e}")
+
+        # Fallback: try to find device from mount_path pattern
+        # e.g., /media/stiner/06D8-6152 -> look for matching device
+        import subprocess
+        result = subprocess.run(
+            ["findmnt", "-n", "-o", "SOURCE", mount_path],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+
+        raise ValueError(f"Could not find block device for {mount_path}")
 
     def _start_websocket_client(self):
         """Start WebSocket client connection in background thread."""
@@ -860,6 +991,16 @@ class StinercutDetector:
                 detector.monitoring_enabled = False
                 detector.logger.info("Monitoring disabled via WebSocket")
                 detector.send_status()
+            elif command == "gopro.organize_sd":
+                # Rename SD card folder from old_folder to new_folder
+                msg_data = data.get("data", {})
+                mount_path = msg_data.get("mount_path")
+                old_folder = msg_data.get("old_folder")
+                new_folder = msg_data.get("new_folder")
+                if mount_path and old_folder and new_folder:
+                    detector.rename_sd_folder(mount_path, old_folder, new_folder)
+                else:
+                    detector.logger.warning(f"gopro.organize_sd missing data: {msg_data}")
             else:
                 detector.logger.debug(f"Unknown command: {command}")
 

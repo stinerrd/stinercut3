@@ -31,6 +31,9 @@ class ImportBatch(Base):
 
     error_message = Column(Text, nullable=True)
 
+    # SD card mount path (for organizing SD card after resolution)
+    mount_path = Column(String(255), nullable=True)
+
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -49,6 +52,7 @@ class ImportBatch(Base):
             'status': self.status,
             'resolution_type': self.resolution_type,
             'error_message': self.error_message,
+            'mount_path': self.mount_path,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

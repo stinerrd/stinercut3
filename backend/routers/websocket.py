@@ -11,6 +11,7 @@ from routers.video_detection import handle_start_detection, handle_gopro_copy_co
 from routers.video_splitter import handle_video_split
 from routers.video_slowmo import handle_video_slowmo
 from routers.video_transition import handle_video_transition
+from routers.animated_pax import handle_animated_pax_intro
 
 router = APIRouter(tags=["websocket"])
 
@@ -141,18 +142,26 @@ async def websocket_hub(websocket: WebSocket, client_type: str = "frontend"):
                 await route_message(response)
                 continue  # Don't route original message
 
-            if command == "gopro:copy_completed" and target == "backend":
+            if command == "gopro.copy_completed":
                 # Auto-trigger video analysis after GOPRO copy
-                result = await handle_gopro_copy_completed(data.get("data", {}), route_message)
+                # Extract folder_path and mount_path from signal data
+                signal_data = data.get("data", {})
+                import_uuid = signal_data.get('uuid', '')
+                folder_path = f"input/{import_uuid}"
+                mount_path = signal_data.get('mount_path')
+                result = await handle_gopro_copy_completed(
+                    {"folder_path": folder_path, "source": "GOPRO", "mount_path": mount_path},
+                    route_message
+                )
                 response = {
-                    "command": "videofile:detection_started",
+                    "command": "videofile.detection_started",
                     "sender": "backend",
                     "target": "frontend",
                     "data": result,
                     "timestamp": get_timestamp()
                 }
                 await route_message(response)
-                continue  # Don't route original message
+                # Continue to also forward original signal to frontend
 
             if command == "video:split" and target == "backend":
                 # Split video at keyframe timestamps
@@ -185,6 +194,19 @@ async def websocket_hub(websocket: WebSocket, client_type: str = "frontend"):
                 result = await handle_video_transition(data.get("data", {}), route_message)
                 response = {
                     "command": "video:transition_started",
+                    "sender": "backend",
+                    "target": "frontend",
+                    "data": result,
+                    "timestamp": get_timestamp()
+                }
+                await route_message(response)
+                continue  # Don't route original message
+
+            if command == "video:animated_pax_intro" and target == "backend":
+                # Create animated PAX screen intro video
+                result = await handle_animated_pax_intro(data.get("data", {}), route_message)
+                response = {
+                    "command": "video:animated_pax_intro_result",
                     "sender": "backend",
                     "target": "frontend",
                     "data": result,

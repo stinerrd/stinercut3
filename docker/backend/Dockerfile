@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# Install FFmpeg and system dependencies
+# Install FFmpeg, rsvg-convert and system dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libavcodec-extra \
@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     libswscale-dev \
     libavfilter-dev \
     libzbar0 \
+    librsvg2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

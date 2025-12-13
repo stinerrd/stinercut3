@@ -22,7 +22,7 @@ class VideoFile(Base):
 
     # Folder tracking
     import_folder_uuid = Column(String(36), nullable=False)  # Original import folder UUID
-    current_folder_uuid = Column(String(36), nullable=False)  # Current folder (may change after matching)
+    current_folder_uuid = Column(String(255), nullable=False)  # Current folder (CLIENT_NAME_UUID format)
     filepath = Column(String(500), nullable=False)  # Full relative path: {folder_uuid}/{filename}
     original_filename = Column(String(255), nullable=False)
 
