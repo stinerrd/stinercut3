@@ -37,11 +37,6 @@ class Project extends Model
         return $this->hasMany(Video::class);
     }
 
-    public function jobs(): HasMany
-    {
-        return $this->hasMany(Job::class);
-    }
-
     // Getters for Symfony PropertyAccessor compatibility
     public function getId(): ?int
     {
