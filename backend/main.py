@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, Base
-from models import Project, Video, Job, Asset, Videopart  # noqa: F401
+from models import Project, Video, Job, Videopart  # noqa: F401
 from models import ImportBatch, VideoFile, VideoFileSegment  # noqa: F401
 
 
