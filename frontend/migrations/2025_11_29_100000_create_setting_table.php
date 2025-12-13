@@ -15,6 +15,7 @@ return new class extends Migration
                 $table->string("key", 255)->unique();
                 $table->text("value")->nullable();
                 $table->enum("type", ["string", "integer", "boolean", "json"])->default("string");
+                $table->text("options")->nullable();
                 $table->string("category", 100);
                 $table->string("label", 255);
                 $table->text("description")->nullable();
@@ -45,6 +46,7 @@ return new class extends Migration
                 "key" => "video.default_codec",
                 "value" => "h264",
                 "type" => "string",
+                "options" => '["h264", "h265", "vp9", "av1"]',
                 "category" => "video",
                 "label" => "Default Codec",
                 "description" => "Default video codec for output files",
@@ -53,6 +55,7 @@ return new class extends Migration
                 "key" => "video.default_resolution",
                 "value" => "1920x1080",
                 "type" => "string",
+                "options" => '["1280x720", "1920x1080", "2560x1440", "3840x2160"]',
                 "category" => "video",
                 "label" => "Default Resolution",
                 "description" => "Default output resolution (width x height)",
@@ -61,6 +64,7 @@ return new class extends Migration
                 "key" => "video.default_fps",
                 "value" => "30",
                 "type" => "integer",
+                "options" => null,
                 "category" => "video",
                 "label" => "Default Frame Rate",
                 "description" => "Default frames per second for output",
@@ -69,6 +73,7 @@ return new class extends Migration
                 "key" => "video.default_bitrate",
                 "value" => "8M",
                 "type" => "string",
+                "options" => null,
                 "category" => "video",
                 "label" => "Default Bitrate",
                 "description" => "Default video bitrate (e.g., 8M, 12M)",
@@ -78,6 +83,7 @@ return new class extends Migration
                 "key" => "storage.upload_path",
                 "value" => "/shared-videos/uploads",
                 "type" => "string",
+                "options" => null,
                 "category" => "storage",
                 "label" => "Upload Path",
                 "description" => "Directory for uploaded video files",
@@ -86,6 +92,7 @@ return new class extends Migration
                 "key" => "storage.output_path",
                 "value" => "/shared-videos/output",
                 "type" => "string",
+                "options" => null,
                 "category" => "storage",
                 "label" => "Output Path",
                 "description" => "Directory for processed video files",
@@ -94,6 +101,7 @@ return new class extends Migration
                 "key" => "storage.temp_path",
                 "value" => "/shared-videos/temp",
                 "type" => "string",
+                "options" => null,
                 "category" => "storage",
                 "label" => "Temp Path",
                 "description" => "Directory for temporary processing files",
@@ -102,6 +110,7 @@ return new class extends Migration
                 "key" => "storage.max_upload_size",
                 "value" => "5368709120",
                 "type" => "integer",
+                "options" => null,
                 "category" => "storage",
                 "label" => "Max Upload Size",
                 "description" => "Maximum upload file size in bytes (default: 5GB)",
