@@ -11,9 +11,9 @@ use Endroid\QrCode\Writer\PngWriter;
 class QrCodeService
 {
     /**
-     * Generate QR code PNG image for a given workload UUID.
+     * Generate QR code PNG image for a given project UUID.
      *
-     * @param string $uuid Workload UUID
+     * @param string $uuid Project UUID
      * @return string PNG image binary data
      */
     public function generateQrCode(string $uuid): string

@@ -5,7 +5,7 @@ twig:
         '%kernel.project_dir%/src/Settings/templates': Settings
         '%kernel.project_dir%/src/Dashboard/templates': Dashboard
         '%kernel.project_dir%/src/Videographer/templates': Videographer
-        '%kernel.project_dir%/src/Workload/templates': Workload
+        '%kernel.project_dir%/src/Project/templates': Project
         '%kernel.project_dir%/src/Client/templates': Client
 
 when@test:
