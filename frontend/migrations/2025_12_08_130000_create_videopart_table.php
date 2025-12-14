@@ -15,6 +15,7 @@ return new class extends Migration
                 $table->string("type", 50);  // 'intro' or 'outro'
                 $table->text("description")->nullable();
                 $table->string("file_path", 500);
+                $table->integer("duration")->nullable()->unsigned();
                 $table->timestamps();
 
                 $table->charset = "utf8mb4";
