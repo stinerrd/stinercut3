@@ -5,7 +5,123 @@
 {% block page_title %}Settings{% endblock %}
 {% block breadcrumb_active %}Settings{% endblock %}
 
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        /* Entity selector styles */
+        .entity-preview {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .entity-thumb {
+            width: 50px;
+            height: 30px;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            background: #fff;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .entity-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .entity-thumb-svg {
+            display: inline-block;
+        }
+        .entity-thumb-svg svg {
+            display: block;
+        }
+        .entity-thumb-sound {
+            width: 80px;
+            height: 25px;
+        }
+        .entity-thumb-video {
+            width: 50px;
+            height: 30px;
+        }
+        .entity-name {
+            font-size: 0.875rem;
+        }
+        .entity-select-wrapper {
+            min-width: 200px;
+        }
+        .entity-select {
+            position: relative;
+        }
+        .entity-select-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            min-height: 31px;
+            padding: 0.25rem 0.5rem;
+        }
+        .entity-select-trigger:hover {
+            background-color: #f8f9fa;
+        }
+        .entity-select-arrow {
+            margin-left: 8px;
+            color: #6c757d;
+            transition: transform 0.2s;
+        }
+        .entity-select.open .entity-select-arrow {
+            transform: rotate(180deg);
+        }
+        .entity-select-dropdown {
+            display: none;
+            position: fixed;
+            z-index: 1050;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+            max-height: 300px;
+            overflow-y: auto;
+            min-width: 250px;
+        }
+        .entity-select-dropdown.show {
+            display: block;
+        }
+        .entity-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .entity-option:last-child {
+            border-bottom: none;
+        }
+        .entity-option:hover {
+            background-color: #e9ecef;
+        }
+        .entity-select-loading {
+            padding: 8px;
+            font-size: 0.875rem;
+        }
+    </style>
+{% endblock %}
+
 {% block content %}
+{# Preview Modal for sounds and videoparts #}
+<div class="modal fade" id="settingsPreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="settingsPreviewModalLabel">Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <audio id="settingsPreviewAudio" controls class="w-100 d-none"></audio>
+                <video id="settingsPreviewVideo" controls class="w-100 d-none" style="max-height: 400px;"></video>
+            </div>
+        </div>
+    </div>
+</div>
 <div class="row">
     <div class="col-12">
         <div class="card card-primary card-outline">
@@ -35,84 +151,131 @@
 
                 {# Tab Content #}
                 <div class="tab-content pt-3" id="settingsTabContent">
-                    {% for category, settings in settingsByCategory %}
+                    {% for category, subcategories in settingsByCategory %}
                     <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
                          id="content-{{ category|lower|replace({' ': '-'}) }}"
                          role="tabpanel"
                          aria-labelledby="tab-{{ category|lower|replace({' ': '-'}) }}">
 
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Setting</th>
-                                        <th>Value</th>
-                                        <th>Description</th>
-                                        <th style="width: 100px;">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for setting in settings %}
-                                    <tr data-setting-key="{{ setting.key }}">
-                                        <td>{{ setting.label }}</td>
-                                        <td>
-                                            <span class="setting-view">
-                                                <code>{{ setting.value }}</code>
-                                            </span>
-                                            <span class="setting-edit" style="display: none;">
-                                                {% set opts = setting.options %}
-                                                {% if opts is not empty %}
-                                                    {# Dropdown for settings with predefined options #}
-                                                    <select class="form-control form-control-sm setting-input"
-                                                            data-original="{{ setting.value }}" data-type="{{ setting.type }}">
-                                                        {% for opt in opts %}
-                                                            <option value="{{ opt }}" {% if setting.value == opt %}selected{% endif %}>{{ opt }}</option>
-                                                        {% endfor %}
-                                                    </select>
-                                                {% elseif setting.type == 'integer' %}
-                                                    <input type="number" class="form-control form-control-sm setting-input"
-                                                           value="{{ setting.value }}" data-original="{{ setting.value }}"
-                                                           data-type="{{ setting.type }}">
-                                                {% elseif setting.type == 'boolean' %}
-                                                    <select class="form-control form-control-sm setting-input"
-                                                            data-original="{{ setting.value }}" data-type="{{ setting.type }}">
-                                                        <option value="true" {% if setting.value == 'true' %}selected{% endif %}>True</option>
-                                                        <option value="false" {% if setting.value == 'false' %}selected{% endif %}>False</option>
-                                                    </select>
-                                                {% elseif setting.type == 'json' %}
-                                                    <textarea class="form-control form-control-sm setting-input"
-                                                              data-original="{{ setting.value }}" data-type="{{ setting.type }}"
-                                                              rows="2">{{ setting.value }}</textarea>
+                        {% for subcategoryName, settings in subcategories %}
+                        {# Subcategory section #}
+                        <div class="subcategory-section mb-4">
+                            <h6 class="text-muted border-bottom pb-2 mb-0">
+                                {{ subcategoryName }}
+                            </h6>
+
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Setting</th>
+                                            <th>Value</th>
+                                            <th>Description</th>
+                                            <th style="width: 100px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for setting in settings %}
+                                        <tr data-setting-key="{{ setting.key }}">
+                                            <td>{{ setting.label }}</td>
+                                            <td>
+                                                <span class="setting-view">
+                                                    {% if setting.type in ['splashscreen', 'sound', 'videopart'] %}
+                                                        {# Entity reference display #}
+                                                        <span class="entity-view" data-type="{{ setting.type }}" data-value="{{ setting.value }}">
+                                                            <span class="text-muted">None</span>
+                                                        </span>
+                                                    {% else %}
+                                                        <code>{{ setting.value }}</code>
+                                                    {% endif %}
+                                                </span>
+                                                <span class="setting-edit" style="display: none;">
+                                                    {% set opts = setting.options %}
+                                                    {% if setting.type in ['splashscreen', 'sound', 'videopart'] %}
+                                                        {# Entity selector - will be populated by JS #}
+                                                        <div class="entity-select-wrapper"
+                                                             data-type="{{ setting.type }}"
+                                                             data-original="{{ setting.value }}"
+                                                             data-value="{{ setting.value }}">
+                                                            <div class="entity-select-loading text-muted">Loading...</div>
+                                                        </div>
+                                                    {% elseif opts is not empty %}
+                                                        {# Dropdown for settings with predefined options #}
+                                                        {# Check if options is object (key:description) or array #}
+                                                        {% set isObjectOptions = opts is iterable and opts|keys|first is not same as(0) %}
+                                                        <select class="form-control form-control-sm setting-input"
+                                                                data-original="{{ setting.value }}" data-type="{{ setting.type }}"
+                                                                {% if isObjectOptions %}data-has-descriptions="true"{% endif %}>
+                                                            {% if isObjectOptions %}
+                                                                {% for key, desc in opts %}
+                                                                    <option value="{{ key }}" data-description="{{ desc }}" {% if setting.value == key %}selected{% endif %}>{{ key }}</option>
+                                                                {% endfor %}
+                                                            {% else %}
+                                                                {% for opt in opts %}
+                                                                    <option value="{{ opt }}" {% if setting.value == opt %}selected{% endif %}>{{ opt }}</option>
+                                                                {% endfor %}
+                                                            {% endif %}
+                                                        </select>
+                                                    {% elseif setting.type == 'integer' %}
+                                                        <input type="number" class="form-control form-control-sm setting-input"
+                                                               value="{{ setting.value }}" data-original="{{ setting.value }}"
+                                                               data-type="{{ setting.type }}">
+                                                    {% elseif setting.type == 'boolean' %}
+                                                        <select class="form-control form-control-sm setting-input"
+                                                                data-original="{{ setting.value }}" data-type="{{ setting.type }}">
+                                                            <option value="true" {% if setting.value == 'true' %}selected{% endif %}>True</option>
+                                                            <option value="false" {% if setting.value == 'false' %}selected{% endif %}>False</option>
+                                                        </select>
+                                                    {% elseif setting.type == 'json' %}
+                                                        <textarea class="form-control form-control-sm setting-input"
+                                                                  data-original="{{ setting.value }}" data-type="{{ setting.type }}"
+                                                                  rows="2">{{ setting.value }}</textarea>
+                                                    {% else %}
+                                                        <input type="text" class="form-control form-control-sm setting-input"
+                                                               value="{{ setting.value }}" data-original="{{ setting.value }}"
+                                                               data-type="{{ setting.type }}">
+                                                    {% endif %}
+                                                </span>
+                                            </td>
+                                            <td class="text-muted setting-description" style="font-size: 0.875rem;"
+                                                {% if setting.options is iterable and setting.options|keys|first is not same as(0) %}
+                                                    data-default-description="{{ setting.description|default('') }}"
+                                                    data-options-json="{{ setting.options|json_encode|e('html_attr') }}"
+                                                {% endif %}>
+                                                {% if setting.options is iterable and setting.options|keys|first is not same as(0) and setting.value and setting.options[setting.value] is defined %}
+                                                    {{ setting.options[setting.value] }}
                                                 {% else %}
-                                                    <input type="text" class="form-control form-control-sm setting-input"
-                                                           value="{{ setting.value }}" data-original="{{ setting.value }}"
-                                                           data-type="{{ setting.type }}">
+                                                    {{ setting.description|default('—') }}
                                                 {% endif %}
-                                            </span>
-                                        </td>
-                                        <td class="text-muted" style="font-size: 0.875rem;">
-                                            {{ setting.description|default('—') }}
-                                        </td>
-                                        <td>
-                                            <div class="btn-group setting-view-buttons" role="group">
-                                                <button type="button" class="btn btn-sm btn-primary btn-edit" title="Edit">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                            </div>
-                                            <div class="btn-group setting-edit-buttons" style="display: none;" role="group">
-                                                <button type="button" class="btn btn-sm btn-success btn-save" title="Save">
-                                                    <i class="bi bi-check-lg"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-secondary btn-cancel" title="Cancel">
-                                                    <i class="bi bi-x-lg"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group setting-view-buttons" role="group">
+                                                    {% if setting.type in ['sound', 'videopart'] and setting.value %}
+                                                    <button type="button" class="btn btn-sm btn-outline-info btn-preview"
+                                                            title="Preview" data-type="{{ setting.type }}" data-value="{{ setting.value }}">
+                                                        <i class="bi bi-play-fill"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    <button type="button" class="btn btn-sm btn-primary btn-edit" title="Edit">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="btn-group setting-edit-buttons" style="display: none;" role="group">
+                                                    <button type="button" class="btn btn-sm btn-success btn-save" title="Save">
+                                                        <i class="bi bi-check-lg"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-secondary btn-cancel" title="Cancel">
+                                                        <i class="bi bi-x-lg"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
+                        {% endfor %}
 
                     </div>
                     {% endfor %}

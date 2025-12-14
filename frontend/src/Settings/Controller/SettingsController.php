@@ -17,7 +17,7 @@ class SettingsController extends AppController
     #[Route('/settings', name: 'app_settings')]
     public function index(): Response
     {
-        $this->addJs('js/settings/settings.js');
+        $this->addJs('js/settings/settings.js?v=7');
 
         $settingsByCategory = $this->settingService->getAllGroupedByCategory();
         $categories = array_keys($settingsByCategory);

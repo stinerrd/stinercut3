@@ -14,7 +14,7 @@ return new class extends Migration
                 $table->id();
                 $table->string("key", 255)->unique();
                 $table->text("value")->nullable();
-                $table->enum("type", ["string", "integer", "boolean", "json"])->default("string");
+                $table->enum("type", ["string", "integer", "boolean", "json", "splashscreen", "sound", "videopart"])->default("string");
                 $table->text("options")->nullable();
                 $table->string("category", 100);
                 $table->string("label", 255);
@@ -78,42 +78,42 @@ return new class extends Migration
                 "label" => "Default Bitrate",
                 "description" => "Default video bitrate (e.g., 8M, 12M)",
             ],
-            // Storage settings
+            // HC template settings
             [
-                "key" => "storage.upload_path",
-                "value" => "/shared-videos/uploads",
-                "type" => "string",
+                "key" => "tandem_hc_template.default.splashscreen",
+                "value" => null,
+                "type" => "splashscreen",
                 "options" => null,
-                "category" => "storage",
-                "label" => "Upload Path",
-                "description" => "Directory for uploaded video files",
+                "category" => "tandem_hc_template",
+                "label" => "Splashscreen",
+                "description" => "Splashscreen overlay for final video",
             ],
             [
-                "key" => "storage.output_path",
-                "value" => "/shared-videos/output",
-                "type" => "string",
+                "key" => "tandem_hc_template.default.intro",
+                "value" => null,
+                "type" => "videopart",
                 "options" => null,
-                "category" => "storage",
-                "label" => "Output Path",
-                "description" => "Directory for processed video files",
+                "category" => "tandem_hc_template",
+                "label" => "Intro",
+                "description" => "Intro clip at the beginning of video",
             ],
             [
-                "key" => "storage.temp_path",
-                "value" => "/shared-videos/temp",
-                "type" => "string",
+                "key" => "tandem_hc_template.default.outro",
+                "value" => null,
+                "type" => "videopart",
                 "options" => null,
-                "category" => "storage",
-                "label" => "Temp Path",
-                "description" => "Directory for temporary processing files",
+                "category" => "tandem_hc_template",
+                "label" => "Outro",
+                "description" => "Outro clip at the end of video",
             ],
             [
-                "key" => "storage.max_upload_size",
-                "value" => "5368709120",
-                "type" => "integer",
-                "options" => null,
-                "category" => "storage",
-                "label" => "Max Upload Size",
-                "description" => "Maximum upload file size in bytes (default: 5GB)",
+                "key" => "tandem_hc_template.default.transition",
+                "value" => "clue",
+                "type" => "string",
+                "options" => '{"clue":"Smooth crossfade with motion blur","fade":"Simple fade to black transition"}',
+                "category" => "tandem_hc_template",
+                "label" => "Transitions",
+                "description" => "Transition effect between clips",
             ],
         ];
 

@@ -23,9 +23,9 @@ class SettingService
     }
 
     /**
-     * Get all settings grouped by category.
+     * Get all settings grouped by category and subcategory.
      *
-     * @return array<string, Setting[]>
+     * @return array<string, array<string, Setting[]>>
      */
     public function getAllGroupedByCategory(): array
     {
@@ -34,13 +34,49 @@ class SettingService
 
         foreach ($settings as $setting) {
             $category = $setting->getCategory() ?? 'general';
+            $subcategory = $this->extractSubcategory($setting->getKey());
+
             if (!isset($grouped[$category])) {
                 $grouped[$category] = [];
             }
-            $grouped[$category][] = $setting;
+            if (!isset($grouped[$category][$subcategory])) {
+                $grouped[$category][$subcategory] = [];
+            }
+            $grouped[$category][$subcategory][] = $setting;
+        }
+
+        // Sort subcategories: General first, then alphabetically
+        foreach ($grouped as $category => &$subcategories) {
+            uksort($subcategories, function ($a, $b) {
+                if ($a === 'General') {
+                    return -1;
+                }
+                if ($b === 'General') {
+                    return 1;
+                }
+
+                return strcasecmp($a, $b);
+            });
         }
 
         return $grouped;
+    }
+
+    /**
+     * Extract subcategory from key.
+     * For keys like "storage.paths.upload" returns "Paths"
+     * For keys like "upload_path" returns "General"
+     */
+    private function extractSubcategory(string $key): string
+    {
+        $parts = explode('.', $key);
+
+        // 3+ segment keys: category.subcategory.key_name
+        if (count($parts) >= 3) {
+            return ucfirst($parts[1]);
+        }
+
+        return 'General';
     }
 
     /**

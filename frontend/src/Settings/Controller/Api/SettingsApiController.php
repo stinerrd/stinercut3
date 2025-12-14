@@ -2,6 +2,9 @@
 
 namespace App\Settings\Controller\Api;
 
+use App\Media\Service\SplashscreenService;
+use App\Media\Service\SoundService;
+use App\Media\Service\VideopartService;
 use App\Settings\Service\SettingService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -14,6 +17,9 @@ class SettingsApiController extends AbstractController
 {
     public function __construct(
         private readonly SettingService $settingService,
+        private readonly SplashscreenService $splashscreenService,
+        private readonly SoundService $soundService,
+        private readonly VideopartService $videopartService,
     ) {
     }
 
@@ -85,6 +91,56 @@ class SettingsApiController extends AbstractController
             'success' => true,
             'message' => 'Setting updated',
             'data' => $setting->toArray(),
+        ]);
+    }
+
+    /**
+     * Get entity options for a specific type (splashscreen or sound).
+     */
+    #[Route('/entity-options/{type}', name: 'api_settings_entity_options', methods: ['GET'], priority: 10)]
+    public function entityOptions(string $type): JsonResponse
+    {
+        $data = [];
+
+        if ($type === 'splashscreen') {
+            $splashscreens = $this->splashscreenService->getImages();
+            foreach ($splashscreens as $splashscreen) {
+                $data[] = [
+                    'id' => $splashscreen->getId(),
+                    'name' => $splashscreen->getName(),
+                    'previewUrl' => '/api/splashscreens/' . $splashscreen->getId() . '/svg',
+                ];
+            }
+        } elseif ($type === 'sound') {
+            $sounds = $this->soundService->getAll();
+            foreach ($sounds as $sound) {
+                $data[] = [
+                    'id' => $sound->getId(),
+                    'name' => $sound->getName(),
+                    'type' => $sound->getType(),
+                    'previewUrl' => '/api/sounds/' . $sound->getId() . '/waveform',
+                ];
+            }
+        } elseif ($type === 'videopart') {
+            $videoparts = $this->videopartService->getAll();
+            foreach ($videoparts as $videopart) {
+                $data[] = [
+                    'id' => $videopart->getId(),
+                    'name' => $videopart->getName(),
+                    'type' => $videopart->getType(),
+                    'previewUrl' => '/api/videoparts/' . $videopart->getId() . '/thumbnail',
+                ];
+            }
+        } else {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Invalid entity type. Supported: splashscreen, sound, videopart',
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        return new JsonResponse([
+            'success' => true,
+            'data' => $data,
         ]);
     }
 

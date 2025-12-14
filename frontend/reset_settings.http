@@ -1,0 +1,2 @@
+POST https://stinercut.local/api/dev/migrations/reset/setting
+Content-Type: application/x-www-form-urlencoded
