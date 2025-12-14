@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Workload\Controller\Api;
+namespace App\Project\Controller\Api;
 
-use App\Workload\Entity\Workload;
-use App\Workload\Service\WorkloadService;
+use App\Project\Entity\Project;
+use App\Project\Service\ProjectService;
 use App\Videographer\Service\VideographerService;
 use App\Client\Service\ClientService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -12,21 +12,21 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/api/workloads')]
-class WorkloadApiController extends AbstractController
+#[Route('/api/projects')]
+class ProjectApiController extends AbstractController
 {
     public function __construct(
-        private readonly WorkloadService $workloadService,
+        private readonly ProjectService $projectService,
         private readonly VideographerService $videographerService,
         private readonly ClientService $clientService,
     ) {
     }
 
     /**
-     * List workloads with pagination and filters.
+     * List projects with pagination and filters.
      * Returns HTML for AJAX or JSON based on Accept header.
      */
-    #[Route('', name: 'api_workloads_list', methods: ['POST'])]
+    #[Route('', name: 'api_projects_list', methods: ['POST'])]
     public function list(Request $request): Response
     {
         $data = json_decode($request->getContent(), true) ?? [];
@@ -58,7 +58,7 @@ class WorkloadApiController extends AbstractController
             $filters['client_id'] = (int) $data['client_id'];
         }
 
-        $result = $this->workloadService->getPaginated($page, $perPage, $filters);
+        $result = $this->projectService->getPaginated($page, $perPage, $filters);
 
         // Check Accept header for response format
         $acceptHeader = $request->headers->get('Accept', '');
@@ -68,7 +68,7 @@ class WorkloadApiController extends AbstractController
             return new JsonResponse([
                 'success' => true,
                 'data' => [
-                    'workloads' => array_map(fn($w) => $w->toArray(), $result['workloads']),
+                    'projects' => array_map(fn($p) => $p->toArray(), $result['projects']),
                     'pagination' => [
                         'currentPage' => $result['currentPage'],
                         'totalPages' => $result['totalPages'],
@@ -80,8 +80,8 @@ class WorkloadApiController extends AbstractController
         }
 
         // Return HTML for AJAX
-        return $this->render('@Workload/_table.html.twig', [
-            'workloads' => $result['workloads'],
+        return $this->render('@Project/_table.html.twig', [
+            'projects' => $result['projects'],
             'pagination' => [
                 'currentPage' => $result['currentPage'],
                 'totalPages' => $result['totalPages'],
@@ -93,30 +93,30 @@ class WorkloadApiController extends AbstractController
     }
 
     /**
-     * Get a single workload.
+     * Get a single project.
      */
-    #[Route('/{id}', name: 'api_workloads_show', methods: ['GET'])]
+    #[Route('/{id}', name: 'api_projects_show', methods: ['GET'])]
     public function show(int $id): JsonResponse
     {
-        $workload = $this->workloadService->find($id);
+        $project = $this->projectService->find($id);
 
-        if (!$workload) {
+        if (!$project) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Workload not found',
+                'error' => 'Project not found',
             ], Response::HTTP_NOT_FOUND);
         }
 
         return new JsonResponse([
             'success' => true,
-            'data' => $workload->toArray(),
+            'data' => $project->toArray(),
         ]);
     }
 
     /**
-     * Create a new workload.
+     * Create a new project.
      */
-    #[Route('/create', name: 'api_workloads_create', methods: ['POST'])]
+    #[Route('/create', name: 'api_projects_create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -137,26 +137,26 @@ class WorkloadApiController extends AbstractController
         }
 
         // Validate type
-        if (!in_array($data['type'], Workload::TYPES)) {
+        if (!in_array($data['type'], Project::TYPES)) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Invalid type value. Allowed: ' . implode(', ', Workload::TYPES),
+                'error' => 'Invalid type value. Allowed: ' . implode(', ', Project::TYPES),
             ], Response::HTTP_BAD_REQUEST);
         }
 
         // Validate video enum
-        if (isset($data['video']) && !in_array($data['video'], Workload::MEDIA_OPTIONS)) {
+        if (isset($data['video']) && !in_array($data['video'], Project::MEDIA_OPTIONS)) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Invalid video value. Allowed: ' . implode(', ', Workload::MEDIA_OPTIONS),
+                'error' => 'Invalid video value. Allowed: ' . implode(', ', Project::MEDIA_OPTIONS),
             ], Response::HTTP_BAD_REQUEST);
         }
 
         // Validate photo enum
-        if (isset($data['photo']) && !in_array($data['photo'], Workload::MEDIA_OPTIONS)) {
+        if (isset($data['photo']) && !in_array($data['photo'], Project::MEDIA_OPTIONS)) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Invalid photo value. Allowed: ' . implode(', ', Workload::MEDIA_OPTIONS),
+                'error' => 'Invalid photo value. Allowed: ' . implode(', ', Project::MEDIA_OPTIONS),
             ], Response::HTTP_BAD_REQUEST);
         }
 
@@ -180,68 +180,68 @@ class WorkloadApiController extends AbstractController
             }
         }
 
-        $workload = $this->workloadService->create(
+        $project = $this->projectService->create(
             clientId: (int) $data['client_id'],
             type: $data['type'],
             videographerId: !empty($data['videographer_id']) ? (int) $data['videographer_id'] : null,
             desiredDate: $data['desired_date'] ?? null,
-            video: $data['video'] ?? Workload::MEDIA_MAYBE,
-            photo: $data['photo'] ?? Workload::MEDIA_MAYBE,
+            video: $data['video'] ?? Project::MEDIA_MAYBE,
+            photo: $data['photo'] ?? Project::MEDIA_MAYBE,
         );
 
         return new JsonResponse([
             'success' => true,
-            'message' => 'Workload created',
-            'data' => $workload->toArray(),
+            'message' => 'Project created',
+            'data' => $project->toArray(),
         ], Response::HTTP_CREATED);
     }
 
     /**
-     * Update an existing workload.
+     * Update an existing project.
      */
-    #[Route('/{id}', name: 'api_workloads_update', methods: ['PUT'])]
+    #[Route('/{id}', name: 'api_projects_update', methods: ['PUT'])]
     public function update(int $id, Request $request): JsonResponse
     {
-        $workload = $this->workloadService->find($id);
+        $project = $this->projectService->find($id);
 
-        if (!$workload) {
+        if (!$project) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Workload not found',
+                'error' => 'Project not found',
             ], Response::HTTP_NOT_FOUND);
         }
 
         $data = json_decode($request->getContent(), true);
 
         // Validate type if provided
-        if (isset($data['type']) && !in_array($data['type'], Workload::TYPES)) {
+        if (isset($data['type']) && !in_array($data['type'], Project::TYPES)) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Invalid type value. Allowed: ' . implode(', ', Workload::TYPES),
+                'error' => 'Invalid type value. Allowed: ' . implode(', ', Project::TYPES),
             ], Response::HTTP_BAD_REQUEST);
         }
 
         // Validate video enum if provided
-        if (isset($data['video']) && !in_array($data['video'], Workload::MEDIA_OPTIONS)) {
+        if (isset($data['video']) && !in_array($data['video'], Project::MEDIA_OPTIONS)) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Invalid video value. Allowed: ' . implode(', ', Workload::MEDIA_OPTIONS),
+                'error' => 'Invalid video value. Allowed: ' . implode(', ', Project::MEDIA_OPTIONS),
             ], Response::HTTP_BAD_REQUEST);
         }
 
         // Validate photo enum if provided
-        if (isset($data['photo']) && !in_array($data['photo'], Workload::MEDIA_OPTIONS)) {
+        if (isset($data['photo']) && !in_array($data['photo'], Project::MEDIA_OPTIONS)) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Invalid photo value. Allowed: ' . implode(', ', Workload::MEDIA_OPTIONS),
+                'error' => 'Invalid photo value. Allowed: ' . implode(', ', Project::MEDIA_OPTIONS),
             ], Response::HTTP_BAD_REQUEST);
         }
 
         // Validate status if provided
-        if (isset($data['status']) && !in_array($data['status'], Workload::STATUSES)) {
+        if (isset($data['status']) && !in_array($data['status'], Project::STATUSES)) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Invalid status value. Allowed: ' . implode(', ', Workload::STATUSES),
+                'error' => 'Invalid status value. Allowed: ' . implode(', ', Project::STATUSES),
             ], Response::HTTP_BAD_REQUEST);
         }
 
@@ -267,8 +267,8 @@ class WorkloadApiController extends AbstractController
             }
         }
 
-        $workload = $this->workloadService->update(
-            entity: $workload,
+        $project = $this->projectService->update(
+            entity: $project,
             clientId: array_key_exists('client_id', $data) ? ($data['client_id'] ? (int) $data['client_id'] : 0) : null,
             type: $data['type'] ?? null,
             videographerId: array_key_exists('videographer_id', $data) ? ($data['videographer_id'] ? (int) $data['videographer_id'] : 0) : null,
@@ -280,31 +280,31 @@ class WorkloadApiController extends AbstractController
 
         return new JsonResponse([
             'success' => true,
-            'message' => 'Workload updated',
-            'data' => $workload->toArray(),
+            'message' => 'Project updated',
+            'data' => $project->toArray(),
         ]);
     }
 
     /**
-     * Delete a workload.
+     * Delete a project.
      */
-    #[Route('/{id}', name: 'api_workloads_delete', methods: ['DELETE'])]
+    #[Route('/{id}', name: 'api_projects_delete', methods: ['DELETE'])]
     public function delete(int $id): JsonResponse
     {
-        $workload = $this->workloadService->find($id);
+        $project = $this->projectService->find($id);
 
-        if (!$workload) {
+        if (!$project) {
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Workload not found',
+                'error' => 'Project not found',
             ], Response::HTTP_NOT_FOUND);
         }
 
-        $this->workloadService->delete($workload);
+        $this->projectService->delete($project);
 
         return new JsonResponse([
             'success' => true,
-            'message' => 'Workload deleted',
+            'message' => 'Project deleted',
         ]);
     }
 }

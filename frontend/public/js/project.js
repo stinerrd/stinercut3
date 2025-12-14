@@ -1,6 +1,6 @@
 /**
- * Workload Management JavaScript
- * Handles CRUD operations, filtering, and pagination for workloads
+ * Project Management JavaScript
+ * Handles CRUD operations, filtering, and pagination for projects
  */
 
 (function() {
@@ -8,18 +8,18 @@
 
     // Configuration from window.App (injected by controller)
     const config = {
-        apiUrl: '/api/workloads',
-        contentId: 'workloads_content',
-        filterFormId: 'workload-filter-form',
+        apiUrl: '/api/projects',
+        contentId: 'projects_content',
+        filterFormId: 'project-filter-form',
         perPage: 20
     };
 
     // Current state
     let currentPage = 1;
-    let deleteWorkloadId = null;
+    let deleteProjectId = null;
 
     // Bootstrap modals
-    let workloadModal = null;
+    let projectModal = null;
     let deleteModal = null;
     let qrModal = null;
 
@@ -28,12 +28,12 @@
      */
     function init() {
         // Initialize Bootstrap modals
-        const workloadModalEl = document.getElementById('workloadModal');
+        const projectModalEl = document.getElementById('projectModal');
         const deleteModalEl = document.getElementById('deleteModal');
         const qrModalEl = document.getElementById('qrModal');
 
-        if (workloadModalEl) {
-            workloadModal = new bootstrap.Modal(workloadModalEl);
+        if (projectModalEl) {
+            projectModal = new bootstrap.Modal(projectModalEl);
         }
         if (deleteModalEl) {
             deleteModal = new bootstrap.Modal(deleteModalEl);
@@ -72,19 +72,19 @@
             });
         }
 
-        // Add workload button
-        const addBtn = document.getElementById('workload-add-btn');
+        // Add project button
+        const addBtn = document.getElementById('project-add-btn');
         if (addBtn) {
             addBtn.addEventListener('click', function() {
                 openCreateModal();
             });
         }
 
-        // Save workload button
-        const saveBtn = document.getElementById('workload-save-btn');
+        // Save project button
+        const saveBtn = document.getElementById('project-save-btn');
         if (saveBtn) {
             saveBtn.addEventListener('click', function() {
-                saveWorkload();
+                saveProject();
             });
         }
 
@@ -99,7 +99,7 @@
         // Delegate click events for table rows (edit, delete, pagination)
         document.addEventListener('click', function(e) {
             // Edit button
-            if (e.target.closest('.workload-edit-btn')) {
+            if (e.target.closest('.project-edit-btn')) {
                 const row = e.target.closest('tr');
                 if (row) {
                     openEditModal(row.dataset.id);
@@ -107,7 +107,7 @@
             }
 
             // Delete button
-            if (e.target.closest('.workload-delete-btn')) {
+            if (e.target.closest('.project-delete-btn')) {
                 const row = e.target.closest('tr');
                 if (row) {
                     openDeleteModal(row.dataset.id);
@@ -115,8 +115,8 @@
             }
 
             // QR code button
-            if (e.target.closest('.workload-qr-btn')) {
-                const btn = e.target.closest('.workload-qr-btn');
+            if (e.target.closest('.project-qr-btn')) {
+                const btn = e.target.closest('.project-qr-btn');
                 if (btn) {
                     openQrModal(btn.dataset.qr, btn.dataset.uuid);
                 }
@@ -174,7 +174,7 @@
     }
 
     /**
-     * Load a page of workloads via AJAX
+     * Load a page of projects via AJAX
      */
     function loadPage(page) {
         currentPage = page;
@@ -182,7 +182,7 @@
         const contentContainer = document.getElementById(config.contentId);
 
         if (!contentContainer) {
-            console.error('Workload content container not found');
+            console.error('Project content container not found');
             return;
         }
 
@@ -228,56 +228,56 @@
      * Open create modal
      */
     function openCreateModal() {
-        const form = document.getElementById('workload-form');
-        const modalTitle = document.getElementById('workloadModalLabel');
+        const form = document.getElementById('project-form');
+        const modalTitle = document.getElementById('projectModalLabel');
 
         if (form) {
             form.reset();
-            document.getElementById('workload-id').value = '';
+            document.getElementById('project-id').value = '';
             // Set default date to today
-            document.getElementById('workload-desired-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('project-desired-date').value = new Date().toISOString().split('T')[0];
         }
 
         if (modalTitle) {
-            modalTitle.textContent = 'Add Workload';
+            modalTitle.textContent = 'Add Project';
         }
 
-        if (workloadModal) {
-            workloadModal.show();
+        if (projectModal) {
+            projectModal.show();
         }
     }
 
     /**
-     * Open edit modal and load workload data
+     * Open edit modal and load project data
      */
     function openEditModal(id) {
-        const modalTitle = document.getElementById('workloadModalLabel');
+        const modalTitle = document.getElementById('projectModalLabel');
 
         if (modalTitle) {
-            modalTitle.textContent = 'Edit Workload';
+            modalTitle.textContent = 'Edit Project';
         }
 
-        // Fetch workload data
+        // Fetch project data
         fetch(`${config.apiUrl}/${id}`)
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
                     populateForm(result.data);
-                    if (workloadModal) {
-                        workloadModal.show();
+                    if (projectModal) {
+                        projectModal.show();
                     }
                 } else {
-                    alert('Failed to load workload: ' + (result.error || 'Unknown error'));
+                    alert('Failed to load project: ' + (result.error || 'Unknown error'));
                 }
             })
             .catch(error => {
-                console.error('Error loading workload:', error);
-                alert('Failed to load workload');
+                console.error('Error loading project:', error);
+                alert('Failed to load project');
             });
     }
 
     /**
-     * Populate the form with workload data
+     * Populate the form with project data
      */
     function populateForm(data) {
         const setVal = (id, value) => {
@@ -285,21 +285,21 @@
             if (el) el.value = value;
         };
 
-        setVal('workload-id', data.id || '');
-        setVal('workload-client', data.client_id || '');
-        setVal('workload-type', data.type || 'tandem_hc');
-        setVal('workload-videographer', data.videographer_id || '');
-        setVal('workload-desired-date', data.desired_date || '');
-        setVal('workload-video', data.video || 'maybe');
-        setVal('workload-photo', data.photo || 'maybe');
+        setVal('project-id', data.id || '');
+        setVal('project-client', data.client_id || '');
+        setVal('project-type', data.type || 'tandem_hc');
+        setVal('project-videographer', data.videographer_id || '');
+        setVal('project-desired-date', data.desired_date || '');
+        setVal('project-video', data.video || 'maybe');
+        setVal('project-photo', data.photo || 'maybe');
     }
 
     /**
-     * Save workload (create or update)
+     * Save project (create or update)
      */
-    function saveWorkload() {
-        const form = document.getElementById('workload-form');
-        const id = document.getElementById('workload-id').value;
+    function saveProject() {
+        const form = document.getElementById('project-form');
+        const id = document.getElementById('project-id').value;
         const isEdit = !!id;
 
         // Gather form data
@@ -309,12 +309,12 @@
         };
 
         const data = {
-            client_id: getVal('workload-client') || null,
-            type: getVal('workload-type') || 'tandem_hc',
-            videographer_id: getVal('workload-videographer') || null,
-            desired_date: getVal('workload-desired-date'),
-            video: getVal('workload-video'),
-            photo: getVal('workload-photo')
+            client_id: getVal('project-client') || null,
+            type: getVal('project-type') || 'tandem_hc',
+            videographer_id: getVal('project-videographer') || null,
+            desired_date: getVal('project-desired-date'),
+            video: getVal('project-video'),
+            photo: getVal('project-photo')
         };
 
         // Validate
@@ -343,17 +343,17 @@
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
-                    if (workloadModal) {
-                        workloadModal.hide();
+                    if (projectModal) {
+                        projectModal.hide();
                     }
                     loadPage(currentPage);
                 } else {
-                    alert('Failed to save workload: ' + (result.error || 'Unknown error'));
+                    alert('Failed to save project: ' + (result.error || 'Unknown error'));
                 }
             })
             .catch(error => {
-                console.error('Error saving workload:', error);
-                alert('Failed to save workload');
+                console.error('Error saving project:', error);
+                alert('Failed to save project');
             });
     }
 
@@ -361,7 +361,7 @@
      * Open delete confirmation modal
      */
     function openDeleteModal(id) {
-        deleteWorkloadId = id;
+        deleteProjectId = id;
         if (deleteModal) {
             deleteModal.show();
         }
@@ -371,9 +371,9 @@
      * Confirm and execute delete
      */
     function confirmDelete() {
-        if (!deleteWorkloadId) return;
+        if (!deleteProjectId) return;
 
-        fetch(`${config.apiUrl}/${deleteWorkloadId}`, {
+        fetch(`${config.apiUrl}/${deleteProjectId}`, {
             method: 'DELETE'
         })
             .then(response => response.json())
@@ -382,15 +382,15 @@
                     if (deleteModal) {
                         deleteModal.hide();
                     }
-                    deleteWorkloadId = null;
+                    deleteProjectId = null;
                     loadPage(currentPage);
                 } else {
-                    alert('Failed to delete workload: ' + (result.error || 'Unknown error'));
+                    alert('Failed to delete project: ' + (result.error || 'Unknown error'));
                 }
             })
             .catch(error => {
-                console.error('Error deleting workload:', error);
-                alert('Failed to delete workload');
+                console.error('Error deleting project:', error);
+                alert('Failed to delete project');
             });
     }
 

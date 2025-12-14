@@ -1,32 +1,32 @@
 <?php
 
-namespace App\Workload\Controller;
+namespace App\Project\Controller;
 
 use App\Controller\AppController;
-use App\Workload\Entity\Workload;
-use App\Workload\Service\WorkloadService;
+use App\Project\Entity\Project;
+use App\Project\Service\ProjectService;
 use App\Videographer\Service\VideographerService;
 use App\Client\Service\ClientService;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-class WorkloadController extends AppController
+class ProjectController extends AppController
 {
     public function __construct(
-        private readonly WorkloadService $workloadService,
+        private readonly ProjectService $projectService,
         private readonly VideographerService $videographerService,
         private readonly ClientService $clientService,
     ) {
         parent::__construct();
     }
 
-    #[Route('/workloads', name: 'app_workloads')]
+    #[Route('/projects', name: 'app_projects')]
     public function index(Request $request): Response
     {
         // Add JavaScript files
         $this->addJs('js/ajax-content-loader.js');
-        $this->addJs('js/workload.js');
+        $this->addJs('js/project.js');
 
         // Get initial page with today's date filter
         $page = $request->query->getInt('page', 1);
@@ -54,12 +54,12 @@ class WorkloadController extends AppController
             $filters['type'] = $request->query->get('type');
         }
 
-        $result = $this->workloadService->getPaginated($page, 20, $filters);
+        $result = $this->projectService->getPaginated($page, 20, $filters);
         $videographers = $this->videographerService->getActive();
         $clients = $this->clientService->getAll();
 
-        return $this->render('@Workload/index.html.twig', [
-            'workloads' => $result['workloads'],
+        return $this->render('@Project/index.html.twig', [
+            'projects' => $result['projects'],
             'pagination' => [
                 'currentPage' => $result['currentPage'],
                 'totalPages' => $result['totalPages'],
@@ -68,10 +68,10 @@ class WorkloadController extends AppController
             ],
             'videographers' => $videographers,
             'clients' => $clients,
-            'statuses' => Workload::STATUSES,
-            'mediaOptions' => Workload::MEDIA_OPTIONS,
-            'types' => Workload::TYPES,
-            'typeLabels' => Workload::TYPE_LABELS,
+            'statuses' => Project::STATUSES,
+            'mediaOptions' => Project::MEDIA_OPTIONS,
+            'types' => Project::TYPES,
+            'typeLabels' => Project::TYPE_LABELS,
             'filters' => $filters,
         ]);
     }

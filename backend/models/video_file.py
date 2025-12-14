@@ -13,7 +13,7 @@ from database import Base
 class VideoFile(Base):
     """
     VideoFile model representing an imported video file.
-    Tracks classification, QR detection, and workload assignment.
+    Tracks classification, QR detection, and project assignment.
     """
     __tablename__ = "video_file"
 
@@ -41,8 +41,8 @@ class VideoFile(Base):
 
     # QR Detection
     qr_content = Column(Text, nullable=True)  # Raw QR content if found
-    detected_workload_uuid = Column(String(36), nullable=True)  # Parsed workload UUID from QR
-    workload_id = Column(BigInteger, nullable=True)  # FK to workload table (after matching)
+    detected_project_uuid = Column(String(36), nullable=True)  # Parsed project UUID from QR
+    project_id = Column(BigInteger, nullable=True)  # FK to project table (after matching)
 
     # Processing status: pending, analyzing, analyzed, matched, error
     status = Column(String(50), default='pending', nullable=False)
@@ -83,8 +83,8 @@ class VideoFile(Base):
             'dominant_classification': self.dominant_classification,
             'classification_confidence': float(self.classification_confidence) if self.classification_confidence else None,
             'qr_content': self.qr_content,
-            'detected_workload_uuid': self.detected_workload_uuid,
-            'workload_id': self.workload_id,
+            'detected_project_uuid': self.detected_project_uuid,
+            'project_id': self.project_id,
             'status': self.status,
             'error_message': self.error_message,
             'jump_number': self.jump_number,

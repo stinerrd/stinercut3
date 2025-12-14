@@ -1,23 +1,23 @@
 <?php
 
-namespace App\Workload\Service;
+namespace App\Project\Service;
 
-use App\Workload\Entity\Workload;
-use App\Workload\Repository\WorkloadRepository;
+use App\Project\Entity\Project;
+use App\Project\Repository\ProjectRepository;
 use Symfony\Component\Uid\Uuid;
 
-class WorkloadService
+class ProjectService
 {
     public function __construct(
-        private readonly WorkloadRepository $repository,
+        private readonly ProjectRepository $repository,
         private readonly QrCodeService $qrCodeService,
     ) {
     }
 
     /**
-     * Get all workloads.
+     * Get all projects.
      *
-     * @return Workload[]
+     * @return Project[]
      */
     public function getAll(): array
     {
@@ -25,20 +25,20 @@ class WorkloadService
     }
 
     /**
-     * Find a workload by ID.
+     * Find a project by ID.
      */
-    public function find(int $id): ?Workload
+    public function find(int $id): ?Project
     {
         return $this->repository->findById($id);
     }
 
     /**
-     * Get paginated workloads with filters.
+     * Get paginated projects with filters.
      *
      * @param int $page Page number (1-based)
      * @param int $perPage Items per page
      * @param array $filters Filter criteria
-     * @return array{workloads: Workload[], currentPage: int, totalPages: int, total: int, perPage: int}
+     * @return array{projects: Project[], currentPage: int, totalPages: int, total: int, perPage: int}
      */
     public function getPaginated(int $page = 1, int $perPage = 20, array $filters = []): array
     {
@@ -46,7 +46,7 @@ class WorkloadService
     }
 
     /**
-     * Create a new workload.
+     * Create a new project.
      * Note: Status is always set to 'created' - it will be changed by backend processing.
      */
     public function create(
@@ -54,15 +54,15 @@ class WorkloadService
         string $type,
         ?int $videographerId = null,
         ?string $desiredDate = null,
-        string $video = Workload::MEDIA_MAYBE,
-        string $photo = Workload::MEDIA_MAYBE
-    ): Workload {
-        $entity = new Workload();
+        string $video = Project::MEDIA_MAYBE,
+        string $photo = Project::MEDIA_MAYBE
+    ): Project {
+        $entity = new Project();
         $entity->setUuid(Uuid::v4()->toRfc4122());
         $entity->setClientId($clientId);
         $entity->setType($type);
         $entity->setVideographerId($videographerId);
-        $entity->setStatus(Workload::STATUS_CREATED);
+        $entity->setStatus(Project::STATUS_CREATED);
         $entity->setVideo($video);
         $entity->setPhoto($photo);
 
@@ -80,8 +80,8 @@ class WorkloadService
             $entity->setQr($qrCode);
             error_log("DEBUG: QR set on entity");
         } catch (\Exception $e) {
-            // Log error but allow workload creation to proceed
-            error_log("ERROR: QR code generation failed for workload {$entity->getUuid()}: {$e->getMessage()}");
+            // Log error but allow project creation to proceed
+            error_log("ERROR: QR code generation failed for project {$entity->getUuid()}: {$e->getMessage()}");
             error_log("ERROR: Stack trace: " . $e->getTraceAsString());
             $entity->setQr(null);
         }
@@ -90,10 +90,10 @@ class WorkloadService
     }
 
     /**
-     * Update an existing workload.
+     * Update an existing project.
      */
     public function update(
-        Workload $entity,
+        Project $entity,
         ?int $clientId = null,
         ?string $type = null,
         ?int $videographerId = null,
@@ -101,7 +101,7 @@ class WorkloadService
         ?string $status = null,
         ?string $video = null,
         ?string $photo = null
-    ): Workload {
+    ): Project {
         if ($clientId !== null) {
             $entity->setClientId($clientId ?: null);
         }
@@ -134,9 +134,9 @@ class WorkloadService
     }
 
     /**
-     * Delete a workload.
+     * Delete a project.
      */
-    public function delete(Workload $entity): bool
+    public function delete(Project $entity): bool
     {
         return $this->repository->deleteEntity($entity);
     }

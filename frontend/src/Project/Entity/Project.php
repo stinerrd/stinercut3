@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Workload\Entity;
+namespace App\Project\Entity;
 
 use DateTimeInterface;
 
-class Workload
+class Project
 {
     // Status constants
     public const STATUS_CREATED = 'created';

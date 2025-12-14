@@ -141,7 +141,7 @@ class VideoAnalyzer:
                     self.db.add(record)
             else:
                 batch.status = 'error'
-                batch.error_message = 'Failed to move files to workload folders'
+                batch.error_message = 'Failed to move files to project folders'
         else:
             batch.status = 'needs_manual'
             batch.resolution_type = resolution.resolution_type
@@ -279,7 +279,7 @@ class VideoAnalyzer:
                 'success': False,
                 'classification': None,
                 'segments_count': 0,
-                'workload_uuid': None,
+                'project_uuid': None,
                 'error': None
             }
 
@@ -311,8 +311,8 @@ class VideoAnalyzer:
                 qr_result = self._detect_qr_sync(file_path, ffmpeg)
                 if qr_result['success']:
                     record.qr_content = qr_result['qr_content']
-                    record.detected_workload_uuid = self._parse_workload_uuid(qr_result['qr_content'])
-                    result['workload_uuid'] = record.detected_workload_uuid
+                    record.detected_project_uuid = self._parse_project_uuid(qr_result['qr_content'])
+                    result['project_uuid'] = record.detected_project_uuid
 
                 # 3. Frame Classification (adaptive sampling)
                 if self.adaptive:
@@ -391,7 +391,7 @@ class VideoAnalyzer:
                             "filename": result['filename'],
                             "dominant_classification": result['classification'],
                             "segments_count": result['segments_count'],
-                            "workload_uuid": result.get('workload_uuid')
+                            "project_uuid": result.get('project_uuid')
                         })
                 else:
                     error_count += 1
@@ -462,8 +462,8 @@ class VideoAnalyzer:
         qr_result = await self._detect_qr(file_path)
         if qr_result['success']:
             record.qr_content = qr_result['qr_content']
-            # Parse workload UUID from "Stinercut: {uuid}" format
-            record.detected_workload_uuid = self._parse_workload_uuid(qr_result['qr_content'])
+            # Parse project UUID from "Stinercut: {uuid}" format
+            record.detected_project_uuid = self._parse_project_uuid(qr_result['qr_content'])
 
         # 2c. Frame Classification (Neurostiner)
         # Note: progress_callback not used here since classify_video_async runs in a thread
@@ -537,8 +537,8 @@ class VideoAnalyzer:
         except Exception:
             return None
 
-    def _parse_workload_uuid(self, qr_content: str) -> Optional[str]:
-        """Parse workload UUID from QR content."""
+    def _parse_project_uuid(self, qr_content: str) -> Optional[str]:
+        """Parse project UUID from QR content."""
         if not qr_content:
             return None
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Workload\Service;
+namespace App\Project\Service;
 
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Encoding\Encoding;

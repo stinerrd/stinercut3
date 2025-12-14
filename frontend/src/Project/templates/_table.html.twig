@@ -1,7 +1,7 @@
-<div id="workloads_content">
-    {% if workloads is empty %}
+<div id="projects_content">
+    {% if projects is empty %}
         <div class="alert alert-info">
-            <i class="bi bi-info-circle me-2"></i>No workloads found matching your criteria.
+            <i class="bi bi-info-circle me-2"></i>No projects found matching your criteria.
         </div>
     {% else %}
         <div class="table-responsive">
@@ -20,26 +20,26 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for workload in workloads %}
-                    <tr data-id="{{ workload.id }}" data-type="{{ workload.type }}" data-client-id="{{ workload.clientId }}">
-                        <td class="workload-client">{{ workload.clientName ?? '-' }}</td>
-                        <td class="workload-type">{{ workload.typeLabel }}</td>
-                        <td class="workload-videographer" data-videographer-id="{{ workload.videographerId }}">
-                            {{ workload.videographerName ?? '-' }}
+                    {% for project in projects %}
+                    <tr data-id="{{ project.id }}" data-type="{{ project.type }}" data-client-id="{{ project.clientId }}">
+                        <td class="project-client">{{ project.clientName ?? '-' }}</td>
+                        <td class="project-type">{{ project.typeLabel }}</td>
+                        <td class="project-videographer" data-videographer-id="{{ project.videographerId }}">
+                            {{ project.videographerName ?? '-' }}
                         </td>
-                        <td class="workload-status">
+                        <td class="project-status">
                             {% set statusClass = {
                                 'created': 'bg-secondary',
                                 'processing': 'bg-primary',
                                 'done': 'bg-success',
                                 'archived': 'bg-dark'
                             } %}
-                            <span class="badge {{ statusClass[workload.status] ?? 'bg-secondary' }}">
-                                {{ workload.status|capitalize }}
+                            <span class="badge {{ statusClass[project.status] ?? 'bg-secondary' }}">
+                                {{ project.status|capitalize }}
                             </span>
                         </td>
-                        <td class="workload-desired-date">{{ workload.desiredDate|date('Y-m-d') }}</td>
-                        <td class="text-center workload-video">
+                        <td class="project-desired-date">{{ project.desiredDate|date('Y-m-d') }}</td>
+                        <td class="text-center project-video">
                             {% set videoClass = {
                                 'yes': 'text-success',
                                 'no': 'text-danger',
@@ -50,9 +50,9 @@
                                 'no': 'bi-x-circle-fill',
                                 'maybe': 'bi-question-circle-fill'
                             } %}
-                            <i class="bi {{ videoIcon[workload.video] }} {{ videoClass[workload.video] }}" title="Video: {{ workload.video }}"></i>
+                            <i class="bi {{ videoIcon[project.video] }} {{ videoClass[project.video] }}" title="Video: {{ project.video }}"></i>
                         </td>
-                        <td class="text-center workload-photo">
+                        <td class="text-center project-photo">
                             {% set photoClass = {
                                 'yes': 'text-success',
                                 'no': 'text-danger',
@@ -63,13 +63,13 @@
                                 'no': 'bi-x-circle-fill',
                                 'maybe': 'bi-question-circle-fill'
                             } %}
-                            <i class="bi {{ photoIcon[workload.photo] }} {{ photoClass[workload.photo] }}" title="Photo: {{ workload.photo }}"></i>
+                            <i class="bi {{ photoIcon[project.photo] }} {{ photoClass[project.photo] }}" title="Photo: {{ project.photo }}"></i>
                         </td>
                         <td class="text-center">
-                            {% if workload.qr %}
-                                <button type="button" class="btn btn-sm btn-outline-secondary workload-qr-btn"
-                                        data-qr="{{ workload.qr|base64_encode }}"
-                                        data-uuid="{{ workload.uuid }}"
+                            {% if project.qr %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary project-qr-btn"
+                                        data-qr="{{ project.qr|base64_encode }}"
+                                        data-uuid="{{ project.uuid }}"
                                         title="View QR Code">
                                     <i class="bi bi-qr-code"></i>
                                 </button>
@@ -78,10 +78,10 @@
                             {% endif %}
                         </td>
                         <td>
-                            <button type="button" class="btn btn-sm btn-outline-primary workload-edit-btn me-1" title="Edit">
+                            <button type="button" class="btn btn-sm btn-outline-primary project-edit-btn me-1" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button type="button" class="btn btn-sm btn-danger workload-delete-btn" title="Delete">
+                            <button type="button" class="btn btn-sm btn-danger project-delete-btn" title="Delete">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>
@@ -97,9 +97,9 @@
                 totalPages: pagination.totalPages,
                 total: pagination.total,
                 perPage: pagination.perPage,
-                itemsCount: workloads|length,
-                entityName: 'Workloads',
-                ariaLabel: 'Workload pagination'
+                itemsCount: projects|length,
+                entityName: 'Projects',
+                ariaLabel: 'Project pagination'
             } %}
         {% endif %}
     {% endif %}

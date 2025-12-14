@@ -18,8 +18,8 @@ from models.video_file_segment import VideoFileSegment
 
 @dataclass
 class JumpMapping:
-    """Mapping of files to a workload."""
-    workload_uuid: str
+    """Mapping of files to a project."""
+    project_uuid: str
     files: List[VideoFile] = field(default_factory=list)
     folder_name: Optional[str] = None  # CLIENT_NAME_UUID format
 
@@ -38,7 +38,7 @@ class ResolutionResult:
 class JumpResolver:
     """
     Resolves jump assignments based on QR codes and freefall detection.
-    Handles file organization into workload folders.
+    Handles file organization into project folders.
     """
 
     def __init__(self, base_path: str, db: Session = None):
@@ -61,50 +61,50 @@ class JumpResolver:
         # Remove leading/trailing underscores
         return sanitized.strip('_')
 
-    def _update_workload_status(self, workload_uuid: str, status: str) -> bool:
-        """Update workload status in database."""
-        if not self.db or not workload_uuid:
+    def _update_project_status(self, project_uuid: str, status: str) -> bool:
+        """Update project status in database."""
+        if not self.db or not project_uuid:
             return False
 
         try:
             self.db.execute(
-                text("UPDATE workload SET status = :status, updated_at = NOW() WHERE uuid = :uuid"),
-                {"status": status, "uuid": workload_uuid}
+                text("UPDATE project SET status = :status, updated_at = NOW() WHERE uuid = :uuid"),
+                {"status": status, "uuid": project_uuid}
             )
             self.db.commit()
             return True
         except Exception as e:
-            print(f"Error updating workload status: {e}")
+            print(f"Error updating project status: {e}")
             return False
 
-    def _get_client_name(self, workload_uuid: str) -> Optional[str]:
-        """Get client name from workload UUID."""
-        if not self.db or not workload_uuid:
+    def _get_client_name(self, project_uuid: str) -> Optional[str]:
+        """Get client name from project UUID."""
+        if not self.db or not project_uuid:
             return None
 
         try:
             result = self.db.execute(text("""
                 SELECT c.name
-                FROM workload w
-                JOIN client c ON w.client_id = c.id
-                WHERE w.uuid = :uuid
-            """), {"uuid": workload_uuid})
+                FROM project p
+                JOIN client c ON p.client_id = c.id
+                WHERE p.uuid = :uuid
+            """), {"uuid": project_uuid})
             row = result.fetchone()
             return row[0] if row else None
         except Exception as e:
-            print(f"Error getting client name for workload {workload_uuid}: {e}")
+            print(f"Error getting client name for project {project_uuid}: {e}")
             return None
 
-    def get_folder_name(self, workload_uuid: str) -> str:
+    def get_folder_name(self, project_uuid: str) -> str:
         """
-        Get folder name for workload (CLIENT_NAME_UUID format).
+        Get folder name for project (CLIENT_NAME_UUID format).
         Falls back to just UUID if client name not found.
         """
-        client_name = self._get_client_name(workload_uuid)
+        client_name = self._get_client_name(project_uuid)
         if client_name:
             sanitized = self._sanitize_name(client_name)
-            return f"{sanitized}_{workload_uuid}"
-        return workload_uuid
+            return f"{sanitized}_{project_uuid}"
+        return project_uuid
 
     def count_freefall_segments(self, files: List[VideoFile]) -> int:
         """
@@ -140,11 +140,11 @@ class JumpResolver:
         Returns:
             ResolutionResult with status and actions
         """
-        # Count unique workload UUIDs from QR codes
+        # Count unique project UUIDs from QR codes
         qr_uuids: Set[str] = set()
         for f in files:
-            if f.detected_workload_uuid:
-                qr_uuids.add(f.detected_workload_uuid)
+            if f.detected_project_uuid:
+                qr_uuids.add(f.detected_project_uuid)
 
         # Count freefall segments
         freefall_count = self.count_freefall_segments(files)
@@ -153,11 +153,11 @@ class JumpResolver:
 
         # CASE 1: Single QR + Single Freefall → Auto-resolve
         if qr_count == 1 and freefall_count == 1:
-            workload_uuid = list(qr_uuids)[0]
+            project_uuid = list(qr_uuids)[0]
             return ResolutionResult(
                 status='resolved',
                 resolution_type='auto_single',
-                mappings=[JumpMapping(workload_uuid=workload_uuid, files=files)],
+                mappings=[JumpMapping(project_uuid=project_uuid, files=files)],
                 detected_qr_uuids=list(qr_uuids),
                 freefall_count=freefall_count
             )
@@ -178,7 +178,7 @@ class JumpResolver:
             return ResolutionResult(
                 status='needs_manual',
                 resolution_type='missing_qr',
-                message='Single jump detected but no QR code found. Manual workload assignment needed.',
+                message='Single jump detected but no QR code found. Manual project assignment needed.',
                 detected_qr_uuids=[],
                 freefall_count=freefall_count
             )
@@ -207,14 +207,14 @@ class JumpResolver:
         current_jump_files: List[VideoFile] = []
 
         for file in sorted_files:
-            if file.detected_workload_uuid and file.detected_workload_uuid != current_qr:
+            if file.detected_project_uuid and file.detected_project_uuid != current_qr:
                 # New QR found - save previous group if exists
                 if current_qr and current_jump_files:
                     mappings.append(JumpMapping(
-                        workload_uuid=current_qr,
+                        project_uuid=current_qr,
                         files=current_jump_files.copy()
                     ))
-                current_qr = file.detected_workload_uuid
+                current_qr = file.detected_project_uuid
                 current_jump_files = [file]
             else:
                 current_jump_files.append(file)
@@ -222,24 +222,24 @@ class JumpResolver:
         # Don't forget the last group
         if current_qr and current_jump_files:
             mappings.append(JumpMapping(
-                workload_uuid=current_qr,
+                project_uuid=current_qr,
                 files=current_jump_files
             ))
 
         return mappings
 
-    def move_files_to_workload(
+    def move_files_to_project(
         self,
         files: List[VideoFile],
-        workload_uuid: str,
+        project_uuid: str,
         source_folder_uuid: str
     ) -> Optional[str]:
         """
-        Move files from source folder to workload folder.
+        Move files from source folder to project folder.
 
         Args:
             files: List of VideoFile objects to move
-            workload_uuid: Target workload UUID
+            project_uuid: Target project UUID
             source_folder_uuid: Source folder UUID
 
         Returns:
@@ -248,7 +248,7 @@ class JumpResolver:
         source_dir = self.base_path / source_folder_uuid
 
         # Get folder name with client name
-        folder_name = self.get_folder_name(workload_uuid)
+        folder_name = self.get_folder_name(project_uuid)
         target_dir = self.base_path / folder_name
 
         # Create target directory if it doesn't exist
@@ -274,8 +274,8 @@ class JumpResolver:
             if source_dir.exists() and not any(source_dir.iterdir()):
                 source_dir.rmdir()
 
-            # Update workload status to 'imported'
-            self._update_workload_status(workload_uuid, 'imported')
+            # Update project status to 'imported'
+            self._update_project_status(project_uuid, 'imported')
 
             return folder_name
 
@@ -285,7 +285,7 @@ class JumpResolver:
 
     def execute_resolution(self, result: ResolutionResult, source_folder_uuid: str) -> Optional[str]:
         """
-        Execute the resolution result (move files to workload folders).
+        Execute the resolution result (move files to project folders).
 
         Args:
             result: ResolutionResult from resolve_jumps()
@@ -293,16 +293,16 @@ class JumpResolver:
 
         Returns:
             Folder name if successful (CLIENT_NAME_UUID format), None otherwise
-            For multi-workload resolutions, returns the first folder name.
+            For multi-project resolutions, returns the first folder name.
         """
         if result.status != 'resolved':
             return None
 
         resolved_folder_name = None
         for mapping in result.mappings:
-            folder_name = self.move_files_to_workload(
+            folder_name = self.move_files_to_project(
                 mapping.files,
-                mapping.workload_uuid,
+                mapping.project_uuid,
                 source_folder_uuid
             )
             if folder_name:

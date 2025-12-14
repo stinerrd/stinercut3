@@ -1,16 +1,16 @@
 <?php
 
-namespace App\Workload\Repository;
+namespace App\Project\Repository;
 
-use App\Workload\Entity\Workload;
+use App\Project\Entity\Project;
 use App\Videographer\Repository\VideographerRepository;
 use App\Client\Repository\ClientRepository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class WorkloadRepository extends Model
+class ProjectRepository extends Model
 {
-    protected $table = "workload";
+    protected $table = "project";
 
     protected $fillable = [
         "uuid",
@@ -33,7 +33,7 @@ class WorkloadRepository extends Model
     ];
 
     /**
-     * Get the videographer associated with this workload.
+     * Get the videographer associated with this project.
      */
     public function videographer(): BelongsTo
     {
@@ -41,7 +41,7 @@ class WorkloadRepository extends Model
     }
 
     /**
-     * Get the client associated with this workload.
+     * Get the client associated with this project.
      */
     public function client(): BelongsTo
     {
@@ -49,9 +49,9 @@ class WorkloadRepository extends Model
     }
 
     /**
-     * Find all workloads.
+     * Find all projects.
      *
-     * @return Workload[]
+     * @return Project[]
      */
     public function findAll(): array
     {
@@ -64,21 +64,21 @@ class WorkloadRepository extends Model
     }
 
     /**
-     * Find a workload by ID.
+     * Find a project by ID.
      */
-    public function findById(int $id): ?Workload
+    public function findById(int $id): ?Project
     {
         $model = static::query()->with(['videographer', 'client'])->find($id);
         return $model ? $this->modelToEntity($model) : null;
     }
 
     /**
-     * Find paginated workloads with filters.
+     * Find paginated projects with filters.
      *
      * @param int $page Page number (1-based)
      * @param int $perPage Items per page
      * @param array $filters Filter criteria
-     * @return array{workloads: Workload[], currentPage: int, totalPages: int, total: int, perPage: int}
+     * @return array{projects: Project[], currentPage: int, totalPages: int, total: int, perPage: int}
      */
     public function findPaginated(int $page = 1, int $perPage = 20, array $filters = []): array
     {
@@ -130,7 +130,7 @@ class WorkloadRepository extends Model
             ->get();
 
         return [
-            'workloads' => $this->modelsToEntities($models),
+            'projects' => $this->modelsToEntities($models),
             'currentPage' => $page,
             'totalPages' => $totalPages,
             'total' => $total,
@@ -141,7 +141,7 @@ class WorkloadRepository extends Model
     /**
      * Save an entity to the database.
      */
-    public function saveEntity(Workload $entity): Workload
+    public function saveEntity(Project $entity): Project
     {
         if ($entity->getId()) {
             $model = static::find($entity->getId());
@@ -169,7 +169,7 @@ class WorkloadRepository extends Model
     /**
      * Delete an entity from the database.
      */
-    public function deleteEntity(Workload $entity): bool
+    public function deleteEntity(Project $entity): bool
     {
         if (!$entity->getId()) {
             return false;
@@ -186,15 +186,15 @@ class WorkloadRepository extends Model
     /**
      * Convert Eloquent model to Entity.
      */
-    private function modelToEntity(self $model): Workload
+    private function modelToEntity(self $model): Project
     {
-        $entity = new Workload();
+        $entity = new Project();
         $entity->setId($model->id);
         $entity->setUuid($model->uuid);
         $entity->setQr($model->qr);
         $entity->setClientId($model->client_id);
         $entity->setVideographerId($model->videographer_id);
-        $entity->setType($model->type ?? Workload::TYPE_TANDEM_HC);
+        $entity->setType($model->type ?? Project::TYPE_TANDEM_HC);
         $entity->setStatus($model->status);
         $entity->setDesiredDate($model->desired_date);
         $entity->setVideo($model->video);
@@ -218,7 +218,7 @@ class WorkloadRepository extends Model
     /**
      * Convert collection of models to array of entities.
      *
-     * @return Workload[]
+     * @return Project[]
      */
     private function modelsToEntities($models): array
     {

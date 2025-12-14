@@ -54,10 +54,10 @@ def run_detection(
             filename = data.get('filename', 'unknown')
             classification = data.get('dominant_classification', 'unknown')
             segments = data.get('segments_count', 0)
-            workload = data.get('workload_uuid', 'none')
+            project = data.get('project_uuid', 'none')
             print(f"  ✓ {filename}: {classification} ({segments} segments)")
-            if workload and workload != 'none':
-                print(f"    QR detected: {workload}")
+            if project and project != 'none':
+                print(f"    QR detected: {project}")
 
         elif event_type == "analysis_progress" and verbose:
             filename = data.get('filename', '')
