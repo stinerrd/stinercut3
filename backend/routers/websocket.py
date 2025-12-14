@@ -12,6 +12,7 @@ from routers.video_splitter import handle_video_split
 from routers.video_slowmo import handle_video_slowmo
 from routers.video_transition import handle_video_transition
 from routers.animated_pax import handle_animated_pax_intro
+from routers.video_vertical import handle_video_vertical
 
 router = APIRouter(tags=["websocket"])
 
@@ -207,6 +208,19 @@ async def websocket_hub(websocket: WebSocket, client_type: str = "frontend"):
                 result = await handle_animated_pax_intro(data.get("data", {}), route_message)
                 response = {
                     "command": "video:animated_pax_intro_result",
+                    "sender": "backend",
+                    "target": "frontend",
+                    "data": result,
+                    "timestamp": get_timestamp()
+                }
+                await route_message(response)
+                continue  # Don't route original message
+
+            if command == "video:vertical" and target == "backend":
+                # Convert video to vertical 9:16 format (Shorts/Reels)
+                result = await handle_video_vertical(data.get("data", {}), route_message)
+                response = {
+                    "command": "video:vertical_started",
                     "sender": "backend",
                     "target": "frontend",
                     "data": result,

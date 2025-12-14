@@ -502,6 +502,176 @@ class FFmpegService:
             )
 
     # =====================
+    # Vertical video operations
+    # =====================
+
+    def crop_and_scale_vertical(
+        self,
+        input_path: str,
+        output_path: str,
+        crop_x: int,
+        source_width: int,
+        source_height: int,
+        output_size: str = "1080p"
+    ) -> None:
+        """
+        Crop 9:16 from any 16:9 source and scale to vertical format.
+
+        Dynamically calculates crop dimensions based on source resolution.
+        Formula: crop_width = source_height * 9 / 16
+
+        Args:
+            input_path: Source video path
+            output_path: Destination video path
+            crop_x: Horizontal offset for crop (0 to max_crop_x)
+            source_width: Source video width
+            source_height: Source video height
+            output_size: Output resolution - "1080p", "720p", or "native"
+        """
+        try:
+            # Calculate crop dimensions from source (9:16 aspect from full height)
+            crop_w = int(source_height * 9 / 16)
+            crop_h = source_height
+
+            # Validate crop_x is within bounds
+            max_crop_x = source_width - crop_w
+            if crop_x < 0 or crop_x > max_crop_x:
+                raise ValueError(f"crop_x must be between 0 and {max_crop_x}, got {crop_x}")
+
+            # Output size options
+            output_sizes = {
+                "1080p": (1080, 1920),
+                "720p": (720, 1280),
+                "native": (crop_w, source_height),
+            }
+
+            if output_size not in output_sizes:
+                raise ValueError(f"Invalid output_size: {output_size}. Use '1080p', '720p', or 'native'")
+
+            out_w, out_h = output_sizes[output_size]
+
+            # Build filter chain: crop then scale
+            vf_filter = f"crop={crop_w}:{crop_h}:{crop_x}:0,scale={out_w}:{out_h}"
+
+            # Quality-focused encoding parameters
+            output_kwargs = {
+                'vcodec': 'libx264',
+                'preset': 'slow',
+                'crf': 18,
+                'pix_fmt': 'yuv420p',
+                'movflags': '+faststart',
+                'acodec': 'aac',
+                'audio_bitrate': '192k',
+                'ar': 48000,
+            }
+            output_kwargs['profile:v'] = 'high'
+            output_kwargs['level'] = '4.2'
+
+            stream = (
+                ffmpeg
+                .input(input_path)
+                .output(output_path, vf=vf_filter, **output_kwargs)
+                .overwrite_output()
+            )
+
+            ffmpeg.run(stream, capture_stdout=True, capture_stderr=True)
+            os.chmod(output_path, 0o644)
+        except ffmpeg.Error as e:
+            raise ValueError(
+                f"Failed to crop/scale vertical: {e.stderr.decode() if e.stderr else str(e)}"
+            )
+
+    def crop_and_scale_vertical_with_progress(
+        self,
+        input_path: str,
+        output_path: str,
+        crop_x: int,
+        source_width: int,
+        source_height: int,
+        output_size: str = "1080p",
+        progress_callback=None
+    ) -> None:
+        """
+        Crop 9:16 with progress reporting via callback.
+
+        Same as crop_and_scale_vertical but reports encoding progress.
+
+        Args:
+            input_path: Source video path
+            output_path: Destination video path
+            crop_x: Horizontal offset for crop
+            source_width: Source video width
+            source_height: Source video height
+            output_size: Output resolution
+            progress_callback: Optional callback(percent: float) for progress updates
+        """
+        import subprocess
+        import re
+        import select
+
+        try:
+            # Get duration for progress calculation
+            duration = self.get_duration(input_path)
+
+            # Calculate crop dimensions
+            crop_w = int(source_height * 9 / 16)
+            crop_h = source_height
+
+            max_crop_x = source_width - crop_w
+            if crop_x < 0 or crop_x > max_crop_x:
+                raise ValueError(f"crop_x must be between 0 and {max_crop_x}, got {crop_x}")
+
+            output_sizes = {
+                "1080p": (1080, 1920),
+                "720p": (720, 1280),
+                "native": (crop_w, source_height),
+            }
+            out_w, out_h = output_sizes.get(output_size, (1080, 1920))
+
+            # Build FFmpeg command manually for progress parsing
+            # Send stderr to /dev/null to avoid buffer deadlock
+            cmd = [
+                'ffmpeg', '-y', '-progress', 'pipe:1', '-i', input_path,
+                '-vf', f'crop={crop_w}:{crop_h}:{crop_x}:0,scale={out_w}:{out_h}',
+                '-c:v', 'libx264', '-preset', 'slow', '-crf', '18',
+                '-profile:v', 'high', '-level', '4.2', '-pix_fmt', 'yuv420p',
+                '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
+                '-movflags', '+faststart',
+                output_path
+            ]
+
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,  # Avoid deadlock by not capturing stderr
+                universal_newlines=True,
+                bufsize=1  # Line buffered
+            )
+
+            time_pattern = re.compile(r'out_time_ms=(\d+)')
+            last_reported = -1
+
+            for line in process.stdout:
+                match = time_pattern.search(line)
+                if match and progress_callback:
+                    time_ms = int(match.group(1))
+                    progress = min(100.0, (time_ms / 1000000.0 / duration) * 100)
+                    # Only report every 5% to reduce callback frequency
+                    progress_int = int(progress // 5) * 5
+                    if progress_int > last_reported:
+                        last_reported = progress_int
+                        progress_callback(float(progress_int))
+
+            process.wait()
+
+            if process.returncode != 0:
+                raise ValueError(f"FFmpeg failed with return code {process.returncode}")
+
+            os.chmod(output_path, 0o644)
+        except Exception as e:
+            raise ValueError(f"Failed to crop/scale vertical: {str(e)}")
+
+    # =====================
     # Audio operations
     # =====================
 

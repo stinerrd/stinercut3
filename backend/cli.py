@@ -14,6 +14,7 @@ from services.video_splitter import VideoSplitterService
 from services.video_slowmo import VideoSlowmoService
 from services.video_transition import VideoTransitionService
 from services.animated_pax_service import AnimatedPaxService
+from services.video_vertical import VideoVerticalService, CropMethod
 
 
 def run_detection(
@@ -481,6 +482,107 @@ def run_animated_pax_intro(
         return 1
 
 
+def run_vertical(
+    input_path: str,
+    method: str = "center",
+    output_size: str = "1080p",
+    output_dir: str = None,
+    center_offset: float = 0.0,
+    verbose: bool = False
+):
+    """
+    Convert video to vertical 9:16 format (for Shorts/Reels).
+
+    Args:
+        input_path: Relative path to video (e.g., "input/abc123/video.mp4")
+        method: Crop method - "center" or "face_tracking"
+        output_size: Output resolution - "1080p", "720p", or "native"
+        output_dir: Output directory (optional, default: same as input)
+        center_offset: Offset from center as percentage (-50 to +50)
+        verbose: Show detailed progress
+    """
+    print(f"Converting to vertical format: {input_path}")
+    print(f"Method: {method}")
+    if method == "center" and center_offset != 0:
+        direction = "left" if center_offset < 0 else "right"
+        print(f"Center offset: {abs(center_offset)}% {direction}")
+    print(f"Output size: {output_size}")
+    if output_dir:
+        print(f"Output directory: {output_dir}")
+    print("-" * 50)
+    start_time = time.time()
+
+    async def progress_callback(event_type: str, data: dict):
+        """Print progress updates."""
+        if event_type == "vertical_started":
+            src_res = data.get('source_resolution', '')
+            crop_win = data.get('crop_window', '')
+            duration = data.get('duration', 0)
+            print(f"Source resolution: {src_res}")
+            print(f"Crop window: {crop_win}")
+            print(f"Duration: {duration:.2f}s")
+
+        elif event_type == "vertical_analyzing":
+            progress = data.get('progress', 0)
+            samples = data.get('samples_processed', 0)
+            faces = data.get('faces_in_frame', 0)
+            if verbose:
+                print(f"\r  Analyzing: {progress:5.1f}% ({samples} samples, {faces} faces in last frame)   ", end='', flush=True)
+            elif int(progress) % 25 == 0 and int(progress) > 0:
+                print(f"  Face detection: {progress:.0f}%")
+
+        elif event_type == "vertical_encoding":
+            progress = data.get('progress', 0)
+            crop_x = data.get('crop_x')
+            # Print newline on first encoding update (crop_x is sent only at start)
+            if crop_x is not None:
+                print()  # Newline after analysis progress
+                print(f"  Starting encoding (crop_x={crop_x})...")
+            elif verbose:
+                print(f"\r  Encoding: {progress:5.1f}%                                        ", end='', flush=True)
+            elif int(progress) % 25 == 0 and int(progress) > 0:
+                print(f"  Encoding: {progress:.0f}%")
+
+        elif event_type == "vertical_completed":
+            output = data.get('output', '')
+            size_mb = data.get('size_bytes', 0) / (1024 * 1024)
+            out_dur = data.get('duration', 0)
+            crop_x = data.get('crop_x', 0)
+            print()
+            print("-" * 50)
+            print(f"Vertical conversion complete!")
+            print(f"  Output: {output}")
+            print(f"  Duration: {out_dur:.2f}s")
+            print(f"  Size: {size_mb:.1f} MB")
+            print(f"  Crop X offset: {crop_x}")
+
+        elif event_type == "vertical_error":
+            print(f"\nError: {data.get('error', 'Unknown error')}")
+
+    async def run():
+        service = VideoVerticalService()
+        crop_method = CropMethod(method)
+        return await service.convert_to_vertical(
+            input_path, crop_method, output_size, output_dir, center_offset, progress_callback
+        )
+
+    try:
+        result = asyncio.run(run())
+        elapsed = time.time() - start_time
+
+        if result['success']:
+            print("-" * 50)
+            print(f"Completed in {elapsed:.1f} seconds")
+            return 0
+        else:
+            print(f"Conversion failed: {result.get('error', 'Unknown error')}")
+            return 1
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return 1
+
+
 def list_pending(status: str = None):
     """List import batches with optional status filter."""
     from models import ImportBatch
@@ -768,6 +870,43 @@ def main():
         help="Show detailed progress"
     )
 
+    # vertical command
+    vertical_parser = subparsers.add_parser(
+        "vertical",
+        help="Convert video to vertical 9:16 format (Shorts/Reels)"
+    )
+    vertical_parser.add_argument(
+        "input_path",
+        help="Relative path to video (e.g., input/abc123/video.mp4)"
+    )
+    vertical_parser.add_argument(
+        "-m", "--method",
+        choices=["center", "face_tracking"],
+        default="center",
+        help="Crop method (default: center)"
+    )
+    vertical_parser.add_argument(
+        "-s", "--size",
+        choices=["1080p", "720p", "native"],
+        default="1080p",
+        help="Output size: 1080p (1080x1920), 720p (720x1280), native (no upscale)"
+    )
+    vertical_parser.add_argument(
+        "-o", "--output-dir",
+        help="Output directory (default: same as input)"
+    )
+    vertical_parser.add_argument(
+        "--offset",
+        type=float,
+        default=0.0,
+        help="Center offset as percentage (-50 to +50). Negative=left, Positive=right. Example: -10 for 10%% left"
+    )
+    vertical_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Show detailed progress"
+    )
+
     args = parser.parse_args()
 
     if args.command == "detect":
@@ -817,6 +956,15 @@ def main():
             args.height,
             args.fps,
             args.codec,
+            args.verbose
+        ))
+    elif args.command == "vertical":
+        sys.exit(run_vertical(
+            args.input_path,
+            args.method,
+            args.size,
+            args.output_dir,
+            args.offset,
             args.verbose
         ))
     else:
