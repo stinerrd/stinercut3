@@ -41,9 +41,8 @@ def get_db():
 
 def init_db():
     """
-    Initialize database by creating all tables.
-    Call this on application startup.
+    Initialize database models.
+    Note: Tables are created by frontend Eloquent migrations, not SQLAlchemy.
+    This function only ensures models are loaded for ORM operations.
     """
-    from models import project, video, job, asset  # noqa: F401
     from models import import_batch, video_file, video_file_segment  # noqa: F401
-    Base.metadata.create_all(bind=engine)

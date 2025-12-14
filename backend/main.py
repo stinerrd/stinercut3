@@ -6,16 +6,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import engine, Base
+from database import engine
 from models import Videopart  # noqa: F401
 from models import ImportBatch, VideoFile, VideoFileSegment  # noqa: F401
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifecycle manager - initialize database on startup."""
-    # Create all tables on startup
-    Base.metadata.create_all(bind=engine)
+    """Application lifecycle manager."""
+    # Tables are created by frontend Eloquent migrations
+    # Backend only uses SQLAlchemy models for ORM operations
     yield
     # Cleanup on shutdown (if needed)
 
