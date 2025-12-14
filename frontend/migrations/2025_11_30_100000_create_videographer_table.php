@@ -9,8 +9,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasTable("tandem_master")) {
-            Schema::create("tandem_master", function (Blueprint $table) {
+        if (!Schema::hasTable("videographer")) {
+            Schema::create("videographer", function (Blueprint $table) {
                 $table->id();
                 $table->string("name", 255);
                 $table->binary("image")->nullable();
@@ -32,7 +32,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists("tandem_master");
+        Schema::dropIfExists("videographer");
     }
 
     private function seedSettings(): void
