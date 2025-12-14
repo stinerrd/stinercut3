@@ -30,8 +30,18 @@ RUN mkdir -p /shared-videos/uploads /shared-videos/temp /shared-videos/output /s
 # Create videodata directory
 RUN mkdir -p /videodata
 
-# Set custom bash prompt
-RUN echo 'PS1="\[\033[01;32m\]\u@backend\[\033[00m\]:\[\033[01;34m\]\w\[\033[01;31m\] \$\[\033[00m\] "' >> /root/.bashrc
+# Create app user with UID/GID 1000 (matches typical host user)
+RUN groupadd -g 1000 appuser && useradd -u 1000 -g appuser -m appuser
+
+# Set ownership of directories
+RUN chown -R appuser:appuser /videodata /shared-videos /app
+
+# Set custom bash prompt for both root and appuser
+RUN echo 'PS1="\[\033[01;32m\]\u@backend\[\033[00m\]:\[\033[01;34m\]\w\[\033[01;31m\] \$\[\033[00m\] "' >> /root/.bashrc \
+    && echo 'PS1="\[\033[01;32m\]\u@backend\[\033[00m\]:\[\033[01;34m\]\w\[\033[01;31m\] \$\[\033[00m\] "' >> /home/appuser/.bashrc
+
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 8000

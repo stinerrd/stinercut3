@@ -93,6 +93,7 @@ class SoundService:
                 # Replace original with normalized
                 os.remove(full_path)
                 os.rename(temp_path, full_path)
+                os.chmod(full_path, 0o644)
 
             # 4. Extract duration (run in thread)
             duration = await asyncio.to_thread(self.ffmpeg.get_audio_duration, current_path)

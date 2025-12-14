@@ -43,6 +43,9 @@ RUN mkdir -p /shared-videos/uploads /shared-videos/temp /shared-videos/output /s
 # Create videodata directory
 RUN mkdir -p /videodata
 
+# Modify www-data to use UID/GID 1000 (matches typical host user)
+RUN usermod -u 1000 www-data && groupmod -g 1000 www-data
+
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www/html /shared-videos /videodata
 
